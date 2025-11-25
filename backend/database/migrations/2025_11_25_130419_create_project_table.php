@@ -35,7 +35,7 @@ return new class extends Migration
 
             $table->decimal('similarity_score', 5, 2)
                 ->default(0.00);
-            $table->timestamps();
+         
         });
     }
 
