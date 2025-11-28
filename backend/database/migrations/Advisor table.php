@@ -1,0 +1,38 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('advisor', function (Blueprint $table) {
+            $table->id('advisor_id');
+            $table->foreignId('user_id')->constrained('user', 'user_id');
+            $table->string('specialization', 100)->nullable(false);
+            $table->enum('education_level', ['BSC', 'MSC', 'PHD'])->nullable(false);
+            $table->string('office_room', 50)->nullable();
+            $table->foreignId('department_id')->constrained('department', 'department_id');
+            $table->integer('current_advise_count')->default(0);
+            $table->foreignId('project_group_id')->constrained('project_group', 'group_id');
+            $table->timestamps();
+        });
+    }
+
+    /
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('advisor');
+    }
+};
