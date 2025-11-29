@@ -8,7 +8,6 @@ import router from "./router.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <RouterProvider router={router} /> //the purpose of this is to be able to
-    use the routes by our routers inside router.jsx
+    <RouterProvider router={router} />
   </StrictMode>
 );
