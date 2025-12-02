@@ -14,16 +14,26 @@ return new class extends Migration
     public function up()
     {
         Schema::create('feedback', function (Blueprint $table) {
-            $table->id('feedback_id');
-            $table->Integer('project_id');
-            $table->Integer('given_by');
-            $table->string('comment',100);
-            $table->dateTime('feedback_date')->default(DB::raw('CURRENT_TIMESTAMP'));
-            $table->foreign('project_id')->references('id')->on('project')->onDelete('cascade');
-            $table->foreign('given_by')->references('id')->on('user')->onDelete('cascade');
-            $table->timestamps();
+          $table->id('feedback_id');
+
+$table->foreignId('project_id')
+      ->constrained('project', 'project_id')
+      ->onDelete('cascade');
+
+$table->foreignId('given_by')
+      ->constrained('user', 'user_id')
+      ->onDelete('cascade');
+
+$table->string('comment', 100);
+
+$table->dateTime('feedback_date')
+      ->default(DB::raw('CURRENT_TIMESTAMP'));
+
+$table->timestamps();
+
         });
     }
+    
 
     /**
      * Reverse the migrations.
