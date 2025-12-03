@@ -32,7 +32,7 @@ return new class extends Migration
             $table->enum('status', ['active', 'inactive'])->default('active');
 
             $table->foreignId('super_admin_id')
-                  ->constrained('super_admin', 'super_admin_id')
+                  ->constrained('_super__admin', 'super_admin_id')
                   ->onDelete('cascade');
 
             $table->timestamp('created_at')->useCurrent();
