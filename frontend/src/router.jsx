@@ -2,7 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import Login from "./views/Login.jsx";
 import Register from "./views/Register.jsx";
 import NotFound from "./views/NotFound.jsx";
-import Users from "./views/users.jsx";
+import Users from "./views/Users.jsx";
 
 const router = createBrowserRouter([
   {
