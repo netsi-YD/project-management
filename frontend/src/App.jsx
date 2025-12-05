@@ -1,7 +1,13 @@
-function App() {
-  const [count, setCount] = useState(0);
+import React from 'react';
+import Login from './components/login';
+import './App.css';
 
-  return <div>App</div>;
+function App() {
+    return (
+        <div className="App">
+            <Login />
+        </div>
+    );
 }
 
 export default App;
