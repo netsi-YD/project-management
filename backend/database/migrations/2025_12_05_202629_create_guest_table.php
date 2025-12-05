@@ -14,7 +14,7 @@ return new class extends Migration
     public function up()
     {
         Schema::create('guests', function (Blueprint $table) {
-            $table->id('guest_id'); // Primary Key, Auto Increment
+            $table->id('guest_id'); 
 
             $table->string('visit_reason', 255);
             $table->dateTime('expiry_date');
