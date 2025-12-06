@@ -3,7 +3,7 @@ import Login from "./views/Login.jsx";
 import Register from "./views/Register.jsx";
 import NotFound from "./views/NotFound.jsx";
 import Users from "./views/Users.jsx";
-
+import DashBoard from "./views/dashboard.jsx";
 const router = createBrowserRouter([
   {
     path: "/login",
@@ -20,6 +20,10 @@ const router = createBrowserRouter([
   {
     path: "*",
     element: <NotFound />,
+  },
+  {
+    path: "/dashboard",
+    element: <DashBoard />,
   },
 ]);
 
