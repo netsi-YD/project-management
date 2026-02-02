@@ -11,19 +11,16 @@ class RoleMiddleware
     {
         $user = $request->user();
 
-        // Not authenticated
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'message' => 'Unauthorized'
             ], 401);
         }
 
-        // Get role names from DB
-        $userRoles = $user->roles()->pluck('role_name')->toArray();
+        $userRoles = $user->roles()->pluck('role_name')->map(fn ($r) => strtolower($r))->toArray();
 
-        // Check if user has at least one required role
         foreach ($roles as $role) {
-            if (in_array($role, $userRoles)) {
+            if (in_array(strtolower($role), $userRoles)) {
                 return $next($request);
             }
         }

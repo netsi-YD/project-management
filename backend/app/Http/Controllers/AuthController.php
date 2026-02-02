@@ -21,9 +21,11 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        $roles = $user->roles()->pluck('name');
+        // 👇 MUST match DB column name
+        $roles = $user->roles()->pluck('role_name');
 
-        if (!$roles->contains('guest')) {
+        // 👇 MUST be singular
+        if (!$roles->contains('Guest')) {
             return response()->json(['message' => 'Unauthorized: Not a guest'], 403);
         }
 
@@ -32,7 +34,7 @@ class AuthController extends Controller
         return response()->json([
             'token' => $token,
             'roles' => $roles,
-            'name'  => $user->name
+            'full_name' => $user->full_name
         ]);
     }
 
