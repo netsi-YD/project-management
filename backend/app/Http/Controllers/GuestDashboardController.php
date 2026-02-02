@@ -31,6 +31,17 @@ class GuestDashboardController extends Controller
     // POST: Request Guest Access
     public function requestAccess(Request $request)
     {
+        $existingGuest = Guest::where('organization', $request->organization)
+    ->where('visit_reason', $request->visit_reason)
+    ->where('expiry_date', '>', now())
+    ->first();
+
+if ($existingGuest) {
+    return response()->json([
+        'message' => 'You already have an active guest request'
+    ], 409);
+}
+
         $validated = $request->validate([
             'visit_reason' => 'required|string|max:255',
             'organization' => 'required|string|max:255',
