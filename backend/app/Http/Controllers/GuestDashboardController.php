@@ -3,24 +3,51 @@
 namespace App\Http\Controllers;
 
 use App\Models\Guest;
+use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class GuestDashboardController extends Controller
 {
+    // GET: Guest Dashboard
     public function index()
-{
-    $now = now();
+    {
+        $now = Carbon::now();
 
-    $activeGuests = Guest::where('expiry_date', '>', $now)->get();
-    $expiredGuests = Guest::where('expiry_date', '<=', $now)->count();
+        $activeGuests = Guest::where('expiry_date', '>', $now)
+            ->orderBy('expiry_date', 'asc')
+            ->get();
 
-    return response()->json([
-        'status' => 'success',
-        'role' => 'guest',
-        'active_guest_count' => $activeGuests->count(),
-        'expired_guest_count' => $expiredGuests,
-        'active_guests' => $activeGuests
-    ]);
-}
+        $expiredGuestsCount = Guest::where('expiry_date', '<=', $now)->count();
 
+        return response()->json([
+            'status' => 'success',
+            'role' => 'guest',
+            'active_guest_count' => $activeGuests->count(),
+            'expired_guest_count' => $expiredGuestsCount,
+            'active_guests' => $activeGuests
+        ]);
+    }
+
+    // POST: Request Guest Access
+    public function requestAccess(Request $request)
+    {
+        $validated = $request->validate([
+            'visit_reason' => 'required|string|max:255',
+            'organization' => 'required|string|max:255',
+        ]);
+
+        $guest = Guest::create([
+            'visit_reason' => $validated['visit_reason'],
+            'organization' => $validated['organization'],
+            'privileges' => 'read-only',
+            'expiry_date' => Carbon::now()->addDays(7),
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Guest access request submitted successfully',
+            'guest_id' => $guest->guest_id,
+            'expires_at' => $guest->expiry_date
+        ], 201);
+    }
 }
