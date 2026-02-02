@@ -8,23 +8,19 @@ use Carbon\Carbon;
 class GuestDashboardController extends Controller
 {
     public function index()
-    {
-        // Get only active (non-expired) guests
-        $guests = Guest::where('expiry_date', '>', Carbon::now())
-            ->orderBy('expiry_date', 'asc')
-            ->get([
-                'guest_id',
-                'visit_reason',
-                'organization',
-                'privileges',
-                'expiry_date'
-            ]);
+{
+    $now = now();
 
-        return response()->json([
-            'status' => 'success',
-            'role' => 'guest',
-            'active_guest_count' => $guests->count(),
-            'guests' => $guests
-        ]);
-    }
+    $activeGuests = Guest::where('expiry_date', '>', $now)->get();
+    $expiredGuests = Guest::where('expiry_date', '<=', $now)->count();
+
+    return response()->json([
+        'status' => 'success',
+        'role' => 'guest',
+        'active_guest_count' => $activeGuests->count(),
+        'expired_guest_count' => $expiredGuests,
+        'active_guests' => $activeGuests
+    ]);
+}
+
 }
