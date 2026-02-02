@@ -1,16 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\GuestDashboardController;
 
-Route::get('/guest/dashboard', function () {
-
-        return response()->json([
-            'message' => 'Welcome to Guest Dashboard',
-            'features' => [
-                'View public projects',
-                'Request access',
-                'Read announcements'
-            ]
-        ]);
-    }
-);
+Route::get('/guest/dashboard', [GuestDashboardController::class, 'index']);
