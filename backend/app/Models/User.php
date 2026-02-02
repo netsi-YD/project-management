@@ -43,4 +43,9 @@ class User extends Authenticatable
             'role_id'
         );
     }
+    public function accessRequests()
+{
+    return $this->hasMany(AccessRequest::class, 'user_id', 'user_id');
+}
+
 }
