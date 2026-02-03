@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import "./Login.css";
-
+import { useNavigate } from "react-router-dom";
 const Login = () => {
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -14,10 +16,37 @@ const Login = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Login attempt:", formData);
-    // Will connect to backend later
+
+    try {
+      const response = await fetch("http://localhost:8000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Login failed");
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.role);
+
+      if (data.role === "guest") {
+        navigate("/guest/dashboard");
+      } else {
+        alert("Logged in, but this dashboard is not implemented yet.");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Server error. Please try again.");
+    }
   };
 
   return (
