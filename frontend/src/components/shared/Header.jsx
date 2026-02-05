@@ -1,38 +1,40 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 
-const Header = ({ title = "Dashboard", role = "Guest" }) => {
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    navigate("/");
-  };
-
+const Header = () => {
   return (
-    <header className="bg-[#0b2c4d] text-white px-8 py-4 flex items-center justify-between">
-      {/* Left */}
-      <div>
-        <h1 className="text-lg font-semibold">University of Gondar</h1>
-        <p className="text-sm opacity-90">Project Management System</p>
-      </div>
+    <header className="sticky top-0 z-50 bg-white border-b">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
+        <div className="flex items-center gap-3">
+          <img
+            src="/image/logo.png"
+            alt="College of Informatics"
+            className="h-8 w-auto"
+          />
+          <span className="text-lg font-semibold text-[#1f67a8]">
+            UoG FYP Management
+          </span>
+        </div>
 
-      {/* Center */}
-      <h2 className="hidden md:block text-base font-medium">{title}</h2>
-
-      {/* Right */}
-      <div className="flex items-center gap-4">
-        <span className="text-sm bg-white/15 px-3 py-1 rounded-full">
-          {role}
-        </span>
-
-        <button
-          onClick={handleLogout}
-          className="bg-[#b11226] hover:bg-[#8f0f1f] transition px-4 py-2 rounded-lg text-sm font-medium"
-        >
-          Logout
-        </button>
+        <nav className="flex items-center gap-6 text-sm font-medium text-gray-700">
+          <a href="#" className="hover:text-[#1f67a8]">
+            Home
+          </a>
+          <a href="#" className="hover:text-[#1f67a8]">
+            About
+          </a>
+          <a href="#" className="hover:text-[#1f67a8]">
+            Departments
+          </a>
+          <a href="#" className="hover:text-[#1f67a8]">
+            Contact Us
+          </a>
+          <a href="#" className="hover:text-[#1f67a8]">
+            Programs
+          </a>
+          <a href="#" className="hover:text-[#1f67a8]">
+            Research{" "}
+          </a>
+        </nav>
       </div>
     </header>
   );
