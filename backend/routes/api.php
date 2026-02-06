@@ -12,5 +12,6 @@ Route::middleware(['auth:sanctum', 'role:guest'])->group(function () {
     Route::get('/guest/dashboard', [GuestDashboardController::class, 'index']);
     Route::post('/guest/request', [GuestDashboardController::class, 'requestAccess']);
     Route::post('/guest/access-request', [AccessRequestController::class, 'store']);
+    Route::get('/guest/projects', [GuestController::class, 'projects']);
 
 });
