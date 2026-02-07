@@ -1,13 +1,7 @@
-import React from "react";
-import Login from "./components/Login";
-import "./App.css";
+import AdvisorDashboard from "./views/advisor/AdvisorDashboard";
 
 function App() {
-  return (
-    <div className="App">
-      <Login />
-    </div>
-  );
+  return <AdvisorDashboard />;
 }
 
 export default App;
