@@ -2,63 +2,40 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Guest;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
+use App\Models\GuestAccess;
+use App\Models\Project;
 
-class GuestDashboardController extends Controller
+class GuestController extends Controller
 {
-    // GET: Guest Dashboard
-    public function index()
+    // 1. PUBLIC PROJECTS
+    public function projects()
     {
-        $now = Carbon::now();
-
-        $activeGuests = Guest::where('expiry_date', '>', $now)
-            ->orderBy('expiry_date', 'asc')
-            ->get();
-
-        $expiredGuestsCount = Guest::where('expiry_date', '<=', $now)->count();
-
-        return response()->json([
-            'status' => 'success',
-            'role' => 'guest',
-            'active_guest_count' => $activeGuests->count(),
-            'expired_guest_count' => $expiredGuestsCount,
-            'active_guests' => $activeGuests
-        ]);
+        return Project::where('is_public', true)->get();
     }
 
-    // POST: Request Guest Access
+    // 2. SUBMIT ACCESS REQUEST
     public function requestAccess(Request $request)
     {
-        $existingGuest = Guest::where('organization', $request->organization)
-    ->where('visit_reason', $request->visit_reason)
-    ->where('expiry_date', '>', now())
-    ->first();
+        $guestId = $request->ip(); // guest identity
 
-if ($existingGuest) {
-    return response()->json([
-        'message' => 'You already have an active guest request'
-    ], 409);
-}
+        $access = GuestAccess::updateOrCreate(
+            ['guest_id' => $guestId],
+            ['status' => 'pending']
+        );
 
-        $validated = $request->validate([
-            'visit_reason' => 'required|string|max:255',
-            'organization' => 'required|string|max:255',
-        ]);
+        return response()->json(['status' => 'pending']);
+    }
 
-        $guest = Guest::create([
-            'visit_reason' => $validated['visit_reason'],
-            'organization' => $validated['organization'],
-            'privileges' => 'read-only',
-            'expiry_date' => Carbon::now()->addDays(7),
-        ]);
+    // 3. CHECK ACCESS STATUS
+    public function status(Request $request)
+    {
+        $guestId = $request->ip();
+
+        $access = GuestAccess::where('guest_id', $guestId)->first();
 
         return response()->json([
-            'status' => 'success',
-            'message' => 'Guest access request submitted successfully',
-            'guest_id' => $guest->guest_id,
-            'expires_at' => $guest->expiry_date
-        ], 201);
+            'status' => $access->status ?? 'none'
+        ]);
     }
 }

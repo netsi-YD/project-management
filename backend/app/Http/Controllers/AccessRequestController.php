@@ -7,6 +7,16 @@ use App\Models\AccessRequest;
 
 class AccessRequestController extends Controller
 {
+    public function status()
+{
+    $request = AccessRequest::where('user_id', auth()->id())
+        ->latest()
+        ->first();
+
+    return response()->json([
+        "status" => $request->status ?? "none"
+    ]);
+}
     public function store(Request $request)
     {
         $request->validate([

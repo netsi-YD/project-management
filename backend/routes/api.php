@@ -1,17 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\GuestDashboardController;
-use App\Http\Controllers\AccessRequestController;
+use App\Http\Controllers\GuestController;
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::get('/guest/projects', [GuestController::class, 'projects']);
+Route::post('/guest/request-access', [GuestController::class, 'requestAccess']);
+Route::get('/guest/access-status', [GuestController::class, 'status']);
 
-Route::middleware(['auth:sanctum', 'role:guest'])->group(function () {
-
-    Route::get('/guest/dashboard', [GuestDashboardController::class, 'index']);
-    Route::post('/guest/request', [GuestDashboardController::class, 'requestAccess']);
-    Route::post('/guest/access-request', [AccessRequestController::class, 'store']);
-    Route::get('/guest/projects', [GuestController::class, 'projects']);
-
-});
+Route::get('/public-projects', [GuestController::class, 'publicProjects']);
