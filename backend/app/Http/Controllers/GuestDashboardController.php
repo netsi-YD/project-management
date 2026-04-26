@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\GuestAccess;
 use App\Models\Project;
 
-class GuestController extends Controller
+class GuestDashboardController extends Controller
 {
     // 1. PUBLIC PROJECTS
     public function projects()
