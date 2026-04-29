@@ -8,4 +8,5 @@ use Illuminate\Database\Eloquent\Model;
 class Submission extends Model
 {
     use HasFactory;
+    protected $fillable = ['project_id', 'student_id', 'file_path', 'type'];
 }
