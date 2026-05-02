@@ -9,6 +9,7 @@ use App\Http\Controllers\SubmissionController;
 use App\Http\Controllers\AdvisorRequestController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\NotificationController;
+use App\Models\Submission;
 
 Route::get('/guest/projects', [GuestDashboardController::class, 'projects']);
 Route::post('/guest/request-access', [GuestDashboardController::class, 'requestAccess']);
@@ -72,6 +73,19 @@ Route::put('/advisor/request/{request_id}', function (Request $request, $request
 });
 Route::post('/comments', [CommentController::class, 'store']);
 Route::get('/comments/{project_id}', [CommentController::class, 'index']);
+
+// GET /api/advisors – list all advisors
+Route::get('/advisors', function () {
+    $advisors = \App\Models\Advisor::select('advisor_id', 'specialization', 'education_level', 'office_room')->get();
+    return response()->json($advisors);
+});
+
+Route::get('/submissions', function (Request $request) {
+    $submissions = Submission::where('student_id', $request->user()->user_id)
+        ->orderBy('created_at', 'desc')
+        ->get();
+    return response()->json($submissions);
+});
 
 Route::get('/notifications', [NotificationController::class, 'index']);
 Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);

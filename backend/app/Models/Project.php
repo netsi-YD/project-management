@@ -21,5 +21,7 @@ class Project extends Model
     'status',
     'submission_date',
     'similarity_score',
+    'deadline',
+    'is_delay_notified',
 ];
 }
