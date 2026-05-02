@@ -10,6 +10,9 @@ use App\Http\Controllers\AdvisorRequestController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\NotificationController;
 use App\Models\Submission;
+use Illuminate\Support\Facades\Storage;
+
+
 
 Route::get('/guest/projects', [GuestDashboardController::class, 'projects']);
 Route::post('/guest/request-access', [GuestDashboardController::class, 'requestAccess']);
@@ -86,6 +89,76 @@ Route::get('/submissions', function (Request $request) {
         ->get();
     return response()->json($submissions);
 });
+Route::post('/ai/similarity', function (Request $request) {
+    $request->validate([
+        'file' => 'required|file|mimes:txt|max:10240',
+    ]);
+
+    // Read uploaded file content (plain text)
+    $content = file_get_contents($request->file('file')->getRealPath());
+
+    // Get the current student's previous submissions
+    $previousFiles = Submission::where('student_id', $request->user()->user_id)
+        ->get()
+        ->filter(function ($sub) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->exists($sub->file_path);
+        })
+        ->map(function ($sub) {
+            return file_get_contents(storage_path('app/public/' . $sub->file_path));
+        })
+        ->toArray();
+
+    if (empty($previousFiles)) {
+        return response()->json([
+            'similarity_percentage' => 0,
+            'message' => 'No previous submissions to compare.',
+        ]);
+    }
+
+    // Helper functions
+    function wordCountVector($text) {
+        $words = str_word_count(strtolower($text), 1);
+        return array_count_values($words);
+    }
+
+    function cosineSimilarity($vec1, $vec2) {
+        $dot = 0.0;
+        $norm1 = 0.0;
+        $norm2 = 0.0;
+        foreach ($vec1 as $word => $count) {
+            $norm1 += $count * $count;
+            if (isset($vec2[$word])) {
+                $dot += $count * $vec2[$word];
+            }
+        }
+        foreach ($vec2 as $count) {
+            $norm2 += $count * $count;
+        }
+        if ($norm1 == 0 || $norm2 == 0) return 0;
+        return $dot / (sqrt($norm1) * sqrt($norm2));
+    }
+
+    $currentVec = wordCountVector($content);
+    $maxSimilarity = 0;
+
+    foreach ($previousFiles as $prevContent) {
+        $prevVec = wordCountVector($prevContent);
+        $sim = cosineSimilarity($currentVec, $prevVec);
+        if ($sim > $maxSimilarity) {
+            $maxSimilarity = $sim;
+        }
+    }
+
+    $percentage = round($maxSimilarity * 100, 2);
+
+    return response()->json([
+        'similarity_percentage' => $percentage,
+        'message' => $percentage > 30
+            ? 'High similarity detected. Please revise.'
+            : 'Similarity is within acceptable range.',
+    ]);
+});
+
 
 Route::get('/notifications', [NotificationController::class, 'index']);
 Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
