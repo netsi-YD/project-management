@@ -8,6 +8,8 @@ import {
   HiOutlineArchive,
   HiOutlineUserGroup,
   HiOutlinePlusCircle,
+  HiOutlineLightBulb,
+  HiOutlineDocumentSearch,
 } from "react-icons/hi";
 
 const menuItems = [
@@ -46,6 +48,16 @@ const menuItems = [
     to: "/student/create-project",
     label: "Create Project",
     icon: HiOutlinePlusCircle,
+  },
+  {
+    to: "/student/ai-title-suggestions",
+    label: "AI Title Suggestions",
+    icon: HiOutlineLightBulb,
+  },
+  {
+    to: "/student/similarity-check",
+    label: "Similarity Check",
+    icon: HiOutlineDocumentSearch,
   },
 ];
 

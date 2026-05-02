@@ -13,6 +13,8 @@ import SubmissionHistory from "./pages/student/SubmissionHistory";
 import ArchivedProjects from "./pages/student/ArchivedProjects";
 import AdvisorCollaboration from "./pages/student/AdvisorCollaboration";
 import CreateProject from "./pages/student/CreateProject";
+import AITitleSuggestions from "./pages/student/AITitleSuggestions";
+import SimilarityCheck from "./pages/student/SimilarityCheck";
 
 const Placeholder = ({ title }) => (
   <div className="p-8 text-center text-gray-500">
@@ -40,6 +42,8 @@ const router = createBrowserRouter([
       { path: "archive", element: <ArchivedProjects /> },
       { path: "collaboration", element: <AdvisorCollaboration /> },
       { path: "create-project", element: <CreateProject /> },
+      { path: "ai-title-suggestions", element: <AITitleSuggestions /> },
+      { path: "similarity-check", element: <SimilarityCheck /> },
     ],
   },
 ]);
