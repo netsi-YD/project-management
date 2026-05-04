@@ -312,4 +312,237 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
 
+
+    Route::get('/advisor/projects', function (Request $request) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains('Advisor')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $advisor = \App\Models\Advisor::where('user_id', $request->user()->user_id)->first();
+    if (!$advisor) {
+        return response()->json(['message' => 'Advisor profile not found'], 404);
+    }
+
+
+    $projects = \App\Models\Project::where('advisor_id', $advisor->advisor_id)
+        ->with('student:user_id,full_name')
+        ->get();
+
+    return response()->json($projects);
+});
+Route::post('/advisor/review', function (Request $request) {
+    // 1. Check Advisor role
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains(fn($r) => strtolower($r) === 'advisor')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    // 2. Find the advisor profile linked to the authenticated user
+    $advisor = \App\Models\Advisor::where('user_id', $request->user()->user_id)->first();
+    if (!$advisor) {
+        return response()->json(['message' => 'Advisor profile not found'], 404);
+    }
+
+    // 3. Validate input
+    $request->validate([
+        'project_id' => 'required|integer|exists:project,project_id',
+        'comment'    => 'required|string',
+        'status'     => 'nullable|in:approved,rejected',
+    ]);
+
+    $project = \App\Models\Project::findOrFail($request->project_id);
+
+    // 4. Ensure the advisor is assigned to this project
+    if ($project->advisor_id != $advisor->advisor_id) {
+        return response()->json(['message' => 'You are not the advisor for this project'], 403);
+    }
+
+    // 5. Create the comment (feedback)
+    $comment = \App\Models\Comment::create([
+        'project_id' => $project->project_id,
+        'user_id'    => $request->user()->user_id,
+        'body'       => $request->comment,
+    ]);
+
+    // 6. Update project status if provided
+    if ($request->status) {
+        $project->update(['status' => $request->status]);
+    }
+
+    return response()->json([
+        'message' => 'Review submitted successfully',
+        'comment' => $comment,
+        'project_status' => $project->status,
+    ]);
+});
+
+Route::put('/advisor/request-revision/{project_id}', function (Request $request, $project_id) {
+    // 1. Check Advisor role
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains(fn($r) => strtolower($r) === 'advisor')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    // 2. Find advisor profile
+    $advisor = \App\Models\Advisor::where('user_id', $request->user()->user_id)->first();
+    if (!$advisor) {
+        return response()->json(['message' => 'Advisor profile not found'], 404);
+    }
+
+    // 3. Find the project and verify the advisor is assigned
+    $project = \App\Models\Project::findOrFail($project_id);
+    if ($project->advisor_id != $advisor->advisor_id) {
+        return response()->json(['message' => 'You are not the advisor for this project'], 403);
+    }
+
+    // 4. Update the project status
+    $project->update(['status' => 'revision']);
+
+    // 5. Send a notification to the student
+    \App\Models\Notification::create([
+        'user_id'         => $project->student_id,
+        'message_type'    => 'revision',
+        'message_content' => "Your project \"{$project->title}\" requires revisions. Please review the feedback.",
+        'is_read'         => false,
+        'sent_at'         => now(),
+    ]);
+
+    return response()->json([
+        'message' => 'Revision requested successfully',
+        'project' => $project,
+    ]);
+});
+
+Route::post('/examiner/evaluate', function (Request $request) {
+    // Check Examiner role
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains(fn($r) => strtolower($r) === 'examiner')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    // Find examiner profile
+    $examiner = \App\Models\Examiner::where('user_id', $request->user()->user_id)->first();
+    if (!$examiner) {
+        return response()->json(['message' => 'Examiner profile not found'], 404);
+    }
+
+    // Validate input
+    $request->validate([
+        'project_id' => 'required|integer|exists:project,project_id',
+        'marks'      => 'required|numeric|min:0|max:100',
+        'status'     => 'required|in:approved,rejected',
+    ]);
+
+    $project = \App\Models\Project::findOrFail($request->project_id);
+
+    // Update project with marks and status
+    $project->update([
+        'similarity_score' => $request->marks,
+        'status'           => $request->status,
+    ]);
+
+    // Notify student
+    \App\Models\Notification::create([
+        'user_id'         => $project->student_id,
+        'message_type'    => 'evaluation',
+        'message_content' => "Your project \"{$project->title}\" has been {$request->status}. Marks: {$request->marks}%.",
+        'is_read'         => false,
+        'sent_at'         => now(),
+    ]);
+
+    return response()->json([
+        'message' => 'Evaluation submitted successfully',
+        'project' => $project,
+    ]);
+});
+
+// Examiner's assigned projects (all projects ready for evaluation)
+Route::get('/examiner/projects', function (Request $request) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains(fn($r) => strtolower($r) === 'examiner')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    // Get projects that are submitted or approved (ready for evaluation)
+    $projects = \App\Models\Project::whereIn('status', ['submitted', 'approved'])
+        ->with('student:user_id,full_name')
+        ->get();
+
+    return response()->json($projects);
+});
+Route::get('/staff/projects', function (Request $request) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    $staffRoles = ['advisor', 'examiner', 'department_head', 'project_coordinator'];
+    if (!$roles->contains(fn($r) => in_array(strtolower($r), $staffRoles))) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $projects = \App\Models\Project::with('student:user_id,full_name')
+        ->when($request->status, fn($q) => $q->where('status', $request->status))
+        ->when($request->search, fn($q) => $q->where('title', 'like', "%{$request->search}%"))
+        ->orderBy('project_id', 'desc')    // ✅ sorted by project ID (most recent first)
+        ->paginate(20);
+
+    return response()->json($projects);
+});
+Route::get('/staff/submissions', function (Request $request) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    $staffRoles = ['advisor', 'examiner', 'department_head', 'project_coordinator'];
+    if (!$roles->contains(fn($r) => in_array(strtolower($r), $staffRoles))) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $submissions = \App\Models\Submission::with('project:project_id,title')
+        ->when($request->project_id, fn($q) => $q->where('project_id', $request->project_id))
+        ->when($request->type, fn($q) => $q->where('type', $request->type))
+        ->orderBy('id', 'desc')
+        ->paginate(20);
+
+    return response()->json($submissions);
+});
+
+Route::post('/staff/assign-advisor', function (Request $request) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    $allowedRoles = ['department_head', 'project_coordinator', 'super_admin'];
+    if (!$roles->contains(fn($r) => in_array(strtolower($r), $allowedRoles))) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $request->validate([
+        'project_id' => 'required|integer|exists:project,project_id',
+        'advisor_id' => 'required|integer|exists:advisors,advisor_id',
+    ]);
+
+    $project = \App\Models\Project::findOrFail($request->project_id);
+    $project->update(['advisor_id' => $request->advisor_id]);
+
+    return response()->json([
+        'message' => 'Advisor assigned successfully',
+        'project' => $project,
+    ]);
+});
+
+Route::put('/staff/project-status/{project_id}', function (Request $request, $project_id) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    $allowedRoles = ['department_head', 'project_coordinator', 'super_admin'];
+    if (!$roles->contains(fn($r) => in_array(strtolower($r), $allowedRoles))) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $request->validate([
+        'status' => 'required|in:pending,approved,rejected,revision,submitted',
+    ]);
+
+    $project = \App\Models\Project::findOrFail($project_id);
+    $project->update(['status' => $request->status]);
+
+    return response()->json([
+        'message' => 'Project status updated',
+        'project' => $project,
+    ]);
+});
+
+
+
 });
