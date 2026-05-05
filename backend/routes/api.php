@@ -230,83 +230,52 @@ Route::middleware('auth:sanctum')->group(function () {
         ]);
     });
 
-    // ── AI TITLE SUGGESTIONS (Template‑based, Gemini‑ready) ──
-    Route::post('/ai/title-suggestions', function (Request $request) {
-        $request->validate(['keyword' => 'required|string']);
-        $kw = trim($request->keyword);
+  Route::post('/ai/title-suggestions', function (Request $request) {
+    $request->validate(['keyword' => 'required|string']);
+    $kw = trim($request->keyword);
 
-        // ★ Use Gemini if the key is set and working; otherwise fall back to templates ★
-        if (env('GEMINI_API_KEY')) {
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-            ])->post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . env('GEMINI_API_KEY'),
-                [
-                    'contents' => [
-                        [
-                            'parts' => [
-                                ['text' => "Suggest 10 unique final-year project titles about \"$kw\". Respond ONLY with a JSON array of strings, no other text. Example: [\"Title 1\", \"Title 2\"]"]
-                            ]
-                        ]
-                    ]
-                ]
-            );
+    $response = Http::withHeaders([
+        'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
+        'Content-Type'  => 'application/json',
+    ])->post('https://api.groq.com/openai/v1/chat/completions', [
+        'model' => 'llama-3.1-8b-instant',
+        'messages' => [
+            [
+                'role' => 'system',
+                'content' => 'You are a helpful academic advisor. Return ONLY a raw JSON array of strings, no other text.'
+            ],
+            [
+                'role' => 'user',
+                'content' => "Suggest exactly 10 unique final-year project titles about \"$kw\". Example: [\"Title 1\",\"Title 2\"]"
+            ]
+        ],
+        'temperature' => 0.9,
+        'max_tokens' => 500,
+    ]);
 
-            // If Gemini succeeds, return its suggestions
-            if ($response->successful()) {
-                $data = $response->json();
-                $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? '[]';
-                $suggestions = json_decode($text, true);
-                if (is_array($suggestions)) {
-                    return response()->json(['suggestions' => $suggestions]);
-                }
-            }
-            // If Gemini fails, continue to template fallback
-        }
+    if ($response->failed()) {
+        return response()->json([
+            'error'   => 'Groq API error',
+            'details' => $response->json(),
+        ], 500);
+    }
 
-        // Template fallback (30 academic templates)
-        $templates = [
-            "An AI-powered system for $kw",
-            "A deep learning approach to $kw",
-            "Smart solutions using $kw",
-            "Predictive modeling for $kw",
-            "Real-time $kw monitoring system",
-            "IoT-enabled $kw platform",
-            "Data-driven $kw analysis tool",
-            "Cloud-based $kw management system",
-            "Mobile application for $kw",
-            "A framework for $kw optimization",
-            "Intelligent $kw: opportunities and challenges",
-            "$kw using blockchain technology",
-            "Enhancing $kw with machine learning",
-            "Scalable $kw architecture",
-            "$kw: a comparative study",
-            "Security and privacy in $kw systems",
-            "Automated $kw detection and response",
-            "The future of $kw in education",
-            "Wearable $kw devices",
-            "Big data analytics for $kw",
-            "$kw recommendation engine",
-            "Edge computing for $kw",
-            "Federated learning applied to $kw",
-            "Explainable AI in $kw",
-            "Multi-agent systems for $kw",
-            "Digital twin of $kw process",
-            "Swarm intelligence for $kw",
-            "Self-healing $kw infrastructure",
-            "Ethical implications of $kw",
-            "$kw in resource-constrained environments",
-        ];
+    $data = $response->json();
+    $rawText = $data['choices'][0]['message']['content'] ?? '[]';
 
-        $templates = array_filter($templates, function ($t) use ($kw) {
-            return strpos($t, "$kw-based $kw") === false && strpos($t, "$kw $kw") === false;
-        });
-        $templates = array_values($templates);
-        shuffle($templates);
-        $suggestions = array_slice($templates, 0, 10);
+    // Remove markdown fences if present
+    $rawText = preg_replace('/^```(?:json)?\s*|\s*```$/m', '', trim($rawText));
+    $suggestions = json_decode(trim($rawText), true);
 
-        return response()->json(['suggestions' => $suggestions]);
-    });
+    if (!is_array($suggestions)) {
+        return response()->json([
+            'error'    => 'Failed to parse AI suggestions',
+            'raw_text' => $rawText,
+        ], 500);
+    }
+
+    return response()->json(['suggestions' => $suggestions]);
+});
 
     // ── Notifications ────────────────────────────────
     Route::get('/notifications', [NotificationController::class, 'index']);

@@ -15,7 +15,7 @@ import AdvisorCollaboration from "./pages/student/AdvisorCollaboration";
 import CreateProject from "./pages/student/CreateProject";
 import AITitleSuggestions from "./pages/student/AITitleSuggestions";
 import SimilarityCheck from "./pages/student/SimilarityCheck";
-
+import AdvisorDashboard from "./pages/advisor/AdvisorDashboard";
 const Placeholder = ({ title }) => (
   <div className="p-8 text-center text-gray-500">
     <h2 className="text-xl font-semibold">{title}</h2>
@@ -45,6 +45,10 @@ const router = createBrowserRouter([
       { path: "ai-title-suggestions", element: <AITitleSuggestions /> },
       { path: "similarity-check", element: <SimilarityCheck /> },
     ],
+  },
+  {
+    path: "/advisor/dashboard",
+    element: <AdvisorDashboard />,
   },
 ]);
 
