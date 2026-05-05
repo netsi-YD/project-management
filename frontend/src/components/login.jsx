@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import "./Login.css";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
-
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -16,17 +15,13 @@ const Login = () => {
     try {
       const response = await api.post("/login", formData);
       const data = response.data;
-
-      // Store token and role
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.roles?.[0] || "student");
-
-      // Navigate based on role
       const role = data.roles?.[0];
       if (role === "Guest") {
         navigate("/guest/dashboard");
       } else {
-        navigate("/student/dashboard"); // default for any other role
+        navigate("/student/dashboard");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -41,7 +36,6 @@ const Login = () => {
   return (
     <div className="login-container">
       <div className="login-card">
-        {/* Logo Section */}
         <div className="logo-section">
           <div className="logo-container">
             <img
@@ -56,8 +50,6 @@ const Login = () => {
             <p>Sign in to your account</p>
           </div>
         </div>
-
-        {/* Form Section */}
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
             <input
@@ -81,7 +73,6 @@ const Login = () => {
               autoComplete="current-password"
             />
           </div>
-
           <div className="form-options">
             <label className="remember-me">
               <input type="checkbox" /> <span>Remember me</span>
@@ -90,11 +81,9 @@ const Login = () => {
               Forgot password?
             </a>
           </div>
-
           <button type="submit" className="login-btn">
             Log in
           </button>
-
           <div className="signup-section">
             <p>
               Don't have an account? <a href="/signup">Sign up</a>
