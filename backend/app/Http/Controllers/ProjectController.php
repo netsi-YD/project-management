@@ -25,16 +25,16 @@ public function store(Request $request)
         'description' => 'required|string',
     ]);
 
-    $project = Project::create([
-        'title'            => $request->title,
-        'description'      => $request->description,
-        'student_id'       => $request->user()->user_id,
-        'status'           => 'pending',
-        'department_id'    => 1,                  // placeholder
-        'advisor_id'       => 1,                  // placeholder – replace with real logic later
-        'submission_date'  => now(),
-        'similarity_score' => 0,  // optional
-    ]);
+   $project = Project::create([
+    'title'            => $request->title,
+    'description'      => $request->description,
+    'student_id'       => $request->user()->user_id,
+    'status'           => 'pending',
+    'department_id'    => 1,                  // keep placeholder for department
+    'advisor_id'       => null,               // no default advisor
+    'submission_date'  => now(),
+    'similarity_score' => 0,
+]);
 
     return response()->json([
         'message' => 'Project created successfully',

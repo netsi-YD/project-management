@@ -31,19 +31,28 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
 
-// ########################################
-// PROTECTED ROUTES (STUDENT / ADVISOR)
-// ########################################
+Route::get('/storage/{path}', function ($path) {
+    $fullPath = storage_path('app/public/' . $path);
+
+    if (!file_exists($fullPath)) {
+        abort(404);
+    }
+
+    $contents = file_get_contents($fullPath);
+    $mime = mime_content_type($fullPath);
+
+    return response($contents)
+        ->header('Content-Type', $mime)
+        ->header('Content-Length', strlen($contents));
+})->where('path', '.*');
+
 Route::middleware('auth:sanctum')->group(function () {
 
-    // ── Student profile ─────────────────────────────
     Route::get('/student/profile', [StudentController::class, 'profile']);
 
-    // ── Projects ────────────────────────────────────
     Route::post('/projects', [ProjectController::class, 'store']);
     Route::get('/projects', [ProjectController::class, 'index']);
 
-    // ── Submissions ─────────────────────────────────
     Route::post('/submit', [SubmissionController::class, 'store']);
 
     // ── Advisor Requests ────────────────────────────
@@ -688,17 +697,31 @@ Route::put('/coordinator/request-revision/{project_id}', function (Request $requ
     if (!$roles->contains(fn($r) => strtolower($r) === 'project_coordinator')) {
         return response()->json(['message' => 'Unauthorized'], 403);
     }
+
+    $request->validate([
+        'comment' => 'nullable|string',
+    ]);
+
     $project = \App\Models\Project::findOrFail($project_id);
     $project->update(['status' => 'revision']);
+
+    // Build notification message
+    $message = "Your project \"{$project->title}\" requires revisions.";
+    if ($request->comment) {
+        $message .= " Coordinator's comments: " . $request->comment;
+    }
+
     \App\Models\Notification::create([
         'user_id'         => $project->student_id,
         'message_type'    => 'revision',
-        'message_content' => "Your project \"{$project->title}\" requires revisions before approval.",
+        'message_content' => $message,
         'is_read'         => false,
         'sent_at'         => now(),
     ]);
+
     return response()->json(['message' => 'Revision requested', 'project' => $project]);
 });
+
 
 Route::get('/coordinator/examiners', function () {
     $examiners = \App\Models\Examiner::select('examiner_id', 'expertise_area', 'education_level')->get();
@@ -711,9 +734,14 @@ Route::get('/coordinator/proposals', function (Request $request) {
     if (!$roles->contains(fn($r) => strtolower($r) === 'project_coordinator')) {
         return response()->json(['message' => 'Unauthorized'], 403);
     }
-    return response()->json(
+        return response()->json(
         \App\Models\Project::where('status', 'pending')
-            ->with('student:user_id,full_name')
+            ->with([
+                'student:user_id,full_name',
+                'submissions' => function ($q) {
+                    $q->where('type', 'proposal')->latest();
+                }
+            ])
             ->get()
     );
 });
@@ -801,6 +829,19 @@ Route::put('/coordinator/forward-evaluation/{evaluation_id}', function (Request 
     $evaluation->update(['status' => 'forwarded_to_dept_head']);
 
     return response()->json(['message' => 'Forwarded to department head', 'evaluation' => $evaluation]);
+});
+
+Route::get('/coordinator/projects-for-assignment', function (Request $request) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains(fn($r) => strtolower($r) === 'project_coordinator')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    return response()->json(
+        \App\Models\Project::where('status', 'approved')
+            ->whereNull('advisor_id')
+            ->with('student:user_id,full_name')
+            ->get()
+    );
 });
 
 });
