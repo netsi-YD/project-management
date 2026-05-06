@@ -24,6 +24,10 @@ const StaffDashboard = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
 
+  // ---------- REVISION COMMENT STATE ----------
+  const [revisionComment, setRevisionComment] = useState({}); // per project id
+  const [activeRevision, setActiveRevision] = useState(null); // project id currently editing
+
   const fetchProfile = useCallback(async () => {
     try {
       const res = await api.get("/student/profile");
@@ -79,7 +83,7 @@ const StaffDashboard = () => {
     init();
   }, [fetchProfile, loadRoleData]);
 
-  // ---------- handlers (same as before) ----------
+  // ---------- handlers ----------
   const handleAdvisorResponse = async (projectId, status) => {
     try {
       await api.put(`/advisor/respond-assignment/${projectId}`, { status });
@@ -101,8 +105,11 @@ const StaffDashboard = () => {
   };
 
   const handleRequestRevision = async (projectId) => {
+    const comment = revisionComment[projectId]?.trim();
     try {
-      await api.put(`/coordinator/request-revision/${projectId}`);
+      await api.put(`/coordinator/request-revision/${projectId}`, { comment });
+      setRevisionComment({ ...revisionComment, [projectId]: "" });
+      setActiveRevision(null);
       const res = await api.get("/coordinator/proposals");
       setPendingProposals(res.data);
     } catch (err) {
@@ -355,6 +362,26 @@ const StaffDashboard = () => {
                 <p className="text-sm text-gray-500">
                   By: {prop.student?.full_name}
                 </p>
+
+                {/* View Proposal Document */}
+                {prop.submissions?.[0]?.file_path && (
+                  <a
+                    href={`http://localhost:8000/api/storage/${prop.submissions[0].file_path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-700 text-sm underline mt-1 inline-block"
+                  >
+                    View Proposal Document
+                  </a>
+                )}
+
+                {/* Preferred advisors */}
+                {prop.preferred_advisor_names && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Preferred advisors: {prop.preferred_advisor_names}
+                  </p>
+                )}
+
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() =>
@@ -373,42 +400,44 @@ const StaffDashboard = () => {
                     Reject
                   </button>
                   <button
-                    onClick={() => handleRequestRevision(prop.project_id)}
+                    onClick={() =>
+                      setActiveRevision(
+                        activeRevision === prop.project_id
+                          ? null
+                          : prop.project_id,
+                      )
+                    }
                     className="border border-[#1f67a8] text-[#1f67a8] px-3 py-1 rounded"
                   >
-                    Request Revision
+                    {activeRevision === prop.project_id
+                      ? "Cancel"
+                      : "Request Revision"}
                   </button>
                 </div>
-                <div className="flex gap-2 mt-2 items-center">
-                  <select
-                    className="border px-2 py-1 rounded"
-                    onChange={(e) =>
-                      e.target.value &&
-                      handleAssignAdvisor(prop.project_id, e.target.value)
-                    }
-                  >
-                    <option value="">Assign Advisor</option>
-                    {advisors.map((a) => (
-                      <option key={a.advisor_id} value={a.advisor_id}>
-                        {a.specialization} ({a.advisor_id})
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="border px-2 py-1 rounded"
-                    onChange={(e) =>
-                      e.target.value &&
-                      handleAssignExaminer(prop.project_id, e.target.value)
-                    }
-                  >
-                    <option value="">Assign Examiner</option>
-                    {examiners.map((e) => (
-                      <option key={e.examiner_id} value={e.examiner_id}>
-                        {e.expertise_area} ({e.examiner_id})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+
+                {/* Revision comment box */}
+                {activeRevision === prop.project_id && (
+                  <div className="mt-2 flex gap-2 items-start">
+                    <textarea
+                      value={revisionComment[prop.project_id] || ""}
+                      onChange={(e) =>
+                        setRevisionComment({
+                          ...revisionComment,
+                          [prop.project_id]: e.target.value,
+                        })
+                      }
+                      placeholder="Specify what needs to be revised..."
+                      className="flex-1 border rounded px-3 py-1 text-sm"
+                      rows={2}
+                    />
+                    <button
+                      onClick={() => handleRequestRevision(prop.project_id)}
+                      className="bg-[#1f67a8] text-white px-3 py-1 rounded text-sm"
+                    >
+                      Send
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

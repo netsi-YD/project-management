@@ -10,7 +10,7 @@ const AssignAdvisors = () => {
     const fetchData = async () => {
       try {
         const [projRes, advRes] = await Promise.all([
-          api.get("/coordinator/proposals"),
+          api.get("/coordinator/projects-for-assignment"),
           api.get("/advisors"),
         ]);
         setProjects(projRes.data || []);
@@ -32,8 +32,11 @@ const AssignAdvisors = () => {
         advisor_id: advisorId,
       });
       alert("Advisor assigned");
+      // Refresh list
+      const res = await api.get("/coordinator/projects-for-assignment");
+      setProjects(res.data || []);
     } catch (err) {
-      alert("Failed");
+      alert("Failed to assign advisor");
     }
   };
 
@@ -45,7 +48,9 @@ const AssignAdvisors = () => {
         Assign Advisors
       </h2>
       {projects.length === 0 ? (
-        <p className="text-gray-500">No pending proposals.</p>
+        <p className="text-gray-500">
+          No projects awaiting advisor assignment.
+        </p>
       ) : (
         <div className="space-y-4">
           {projects.map((p) => (

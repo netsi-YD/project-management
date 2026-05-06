@@ -4,6 +4,7 @@ import api from "../../api/axios";
 const PendingProposals = () => {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [revisionComment, setRevisionComment] = useState({}); // per project id
 
   const fetchProposals = async () => {
     try {
@@ -32,13 +33,17 @@ const PendingProposals = () => {
   };
 
   const handleRequestRevision = async (projectId) => {
+    const comment = revisionComment[projectId]?.trim();
     try {
-      await api.put(`/coordinator/request-revision/${projectId}`);
+      await api.put(`/coordinator/request-revision/${projectId}`, { comment });
+      setRevisionComment({ ...revisionComment, [projectId]: "" });
       fetchProposals();
     } catch (err) {
-      alert("Failed");
+      alert("Failed to request revision");
     }
   };
+
+  const [activeRevision, setActiveRevision] = useState(null); // project id currently editing
 
   if (loading) return <p className="text-gray-500">Loading…</p>;
 
@@ -51,35 +56,84 @@ const PendingProposals = () => {
         <p className="text-gray-500">No pending proposals.</p>
       ) : (
         <div className="space-y-4">
-          {proposals.map((p) => (
-            <div
-              key={p.project_id}
-              className="bg-white rounded border p-4 shadow-sm"
-            >
-              <h3 className="font-semibold">{p.title}</h3>
+          {proposals.map((prop) => (
+            <div key={prop.project_id} className="border p-4 rounded mb-3">
+              <p className="font-medium">{prop.title}</p>
               <p className="text-sm text-gray-500">
-                Student: {p.student?.full_name}
+                By: {prop.student?.full_name}
               </p>
-              <div className="flex gap-2 mt-3">
+
+              {/* View Proposal Document */}
+              {prop.submissions?.[0]?.file_path && (
+                <a
+                  href={`http://localhost:8000/api/storage/${prop.submissions[0].file_path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-700 text-sm underline mt-1 inline-block"
+                >
+                  View Proposal Document
+                </a>
+              )}
+
+              {/* Preferred advisors */}
+              {prop.preferred_advisor_names && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Preferred advisors: {prop.preferred_advisor_names}
+                </p>
+              )}
+
+              <div className="flex gap-2 mt-2 items-center">
                 <button
-                  onClick={() => handleAction(p.project_id, "approved")}
+                  onClick={() => handleAction(prop.project_id, "approved")}
                   className="bg-[#1f67a8] text-white px-3 py-1 rounded text-sm"
                 >
-                  Approve
+                  Accept
                 </button>
                 <button
-                  onClick={() => handleAction(p.project_id, "rejected")}
+                  onClick={() => handleAction(prop.project_id, "rejected")}
                   className="bg-red-600 text-white px-3 py-1 rounded text-sm"
                 >
                   Reject
                 </button>
                 <button
-                  onClick={() => handleRequestRevision(p.project_id)}
+                  onClick={() =>
+                    setActiveRevision(
+                      activeRevision === prop.project_id
+                        ? null
+                        : prop.project_id,
+                    )
+                  }
                   className="border border-[#1f67a8] text-[#1f67a8] px-3 py-1 rounded text-sm"
                 >
-                  Request Revision
+                  {activeRevision === prop.project_id
+                    ? "Cancel"
+                    : "Request Revision"}
                 </button>
               </div>
+
+              {/* Revision comment box */}
+              {activeRevision === prop.project_id && (
+                <div className="mt-2 flex gap-2 items-start">
+                  <textarea
+                    value={revisionComment[prop.project_id] || ""}
+                    onChange={(e) =>
+                      setRevisionComment({
+                        ...revisionComment,
+                        [prop.project_id]: e.target.value,
+                      })
+                    }
+                    placeholder="Specify what needs to be revised..."
+                    className="flex-1 border rounded px-3 py-1 text-sm"
+                    rows={2}
+                  />
+                  <button
+                    onClick={() => handleRequestRevision(prop.project_id)}
+                    className="bg-[#1f67a8] text-white px-3 py-1 rounded text-sm"
+                  >
+                    Send
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
