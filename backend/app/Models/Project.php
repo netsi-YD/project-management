@@ -27,5 +27,7 @@ class Project extends Model
     'similarity_score',
     'deadline',
     'is_delay_notified',
+    'advisor_request_status',
+    'preferred_advisor_names',
 ];
 }
