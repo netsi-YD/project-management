@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import "./Login.css";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
+
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -15,10 +16,19 @@ const Login = () => {
     try {
       const response = await api.post("/login", formData);
       const data = response.data;
+
       localStorage.setItem("token", data.token);
-      localStorage.setItem("role", data.roles?.[0] || "student");
-      const role = data.roles?.[0];
-      if (role === "Guest") {
+      localStorage.setItem("roles", JSON.stringify(data.roles)); // ← new line
+
+      const roles = (data.roles || []).map((r) => r.toLowerCase());
+
+      if (
+        roles.includes("advisor") ||
+        roles.includes("examiner") ||
+        roles.includes("project_coordinator")
+      ) {
+        navigate("/staff");
+      } else if (roles.includes("guest")) {
         navigate("/guest/dashboard");
       } else {
         navigate("/student/dashboard");

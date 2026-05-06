@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import api from "../../api/axios";
 import {
   HiOutlineHome,
   HiOutlineUpload,
@@ -11,7 +12,7 @@ import {
   HiOutlineLightBulb,
   HiOutlineDocumentSearch,
 } from "react-icons/hi";
-
+import { useNavigate } from "react-router-dom";
 const menuItems = [
   { to: "/student/dashboard", label: "Dashboard", icon: HiOutlineHome },
   {
@@ -62,6 +63,14 @@ const menuItems = [
 ];
 
 const Sidebar = () => {
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("roles");
+    navigate("/login");
+  };
+
   return (
     <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
       <div className="h-16 flex items-center justify-center border-b border-gray-200">
@@ -85,6 +94,14 @@ const Sidebar = () => {
           </NavLink>
         ))}
       </nav>
+      <div className="mt-auto border-t pt-4">
+        <button
+          onClick={handleLogout}
+          className="w-full text-left px-6 py-2 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
+        >
+          Log out
+        </button>
+      </div>
     </aside>
   );
 };

@@ -15,7 +15,21 @@ import AdvisorCollaboration from "./pages/student/AdvisorCollaboration";
 import CreateProject from "./pages/student/CreateProject";
 import AITitleSuggestions from "./pages/student/AITitleSuggestions";
 import SimilarityCheck from "./pages/student/SimilarityCheck";
-import AdvisorDashboard from "./pages/advisor/AdvisorDashboard";
+import StaffDashboard from "./pages/staff/Dashboard";
+import StaffLayout from "./components/layout/StaffLayout";
+import MyGroups from "./pages/staff/MyGroups";
+import AdvisorRequests from "./pages/staff/AdvisorRequests";
+import Submissions from "./pages/staff/Submissions";
+import Reviews from "./pages/staff/Reviews";
+import Messages from "./pages/staff/Messages";
+import EvaluateProjects from "./pages/staff/EvaluateProjects";
+import SimilarityReports from "./pages/staff/SimilarityReports";
+import FinalGrades from "./pages/staff/FinalGrades";
+import PendingProposals from "./pages/staff/PendingProposals";
+import AssignAdvisors from "./pages/staff/AssignAdvisors";
+import AssignExaminers from "./pages/staff/AssignExaminers";
+import ManageProjects from "./pages/staff/ManageProjects";
+import CoordinatorEvaluations from "./pages/staff/CoordinatorEvaluations";
 const Placeholder = ({ title }) => (
   <div className="p-8 text-center text-gray-500">
     <h2 className="text-xl font-semibold">{title}</h2>
@@ -47,8 +61,27 @@ const router = createBrowserRouter([
     ],
   },
   {
-    path: "/advisor/dashboard",
-    element: <AdvisorDashboard />,
+    path: "/staff",
+    element: <StaffLayout />,
+    children: [
+      { index: true, element: <StaffDashboard /> },
+      { path: "dashboard", element: <StaffDashboard /> },
+
+      { path: "my-groups", element: <MyGroups /> },
+
+      { path: "advisor-requests", element: <AdvisorRequests /> },
+      { path: "submissions", element: <Submissions /> },
+      { path: "reviews", element: <Reviews /> },
+      { path: "messages", element: <Messages /> },
+      { path: "similarity", element: <SimilarityReports /> },
+      { path: "final-grades", element: <FinalGrades /> },
+      { path: "pending-proposals", element: <PendingProposals /> },
+      { path: "assign-advisors", element: <AssignAdvisors /> },
+      { path: "assign-examiners", element: <AssignExaminers /> },
+      { path: "manage-projects", element: <ManageProjects /> },
+      { path: "evaluate", element: <EvaluateProjects /> }, // already exists, updated
+      { path: "coordinator-evaluations", element: <CoordinatorEvaluations /> },
+    ],
   },
 ]);
 
