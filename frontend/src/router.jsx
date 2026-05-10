@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
-
+import SignUp from "./pages/SignUp";
 import PublicGuestHome from "./pages/guest/PublicGuestHome";
 import GuestProjects from "./pages/guest/GuestProjects";
 import AccessRequestForm from "./pages/guest/AccessRequestForm";
@@ -30,6 +30,13 @@ import AssignAdvisors from "./pages/staff/AssignAdvisors";
 import AssignExaminers from "./pages/staff/AssignExaminers";
 import ManageProjects from "./pages/staff/ManageProjects";
 import CoordinatorEvaluations from "./pages/staff/CoordinatorEvaluations";
+import AdminDashboard from "./pages/staff/AdminDashboard";
+import ManageUsers from "./pages/staff/ManageUsers";
+import Schedules from "./pages/staff/Schedules";
+import ProjectStatusAdmin from "./pages/staff/ProjectStatus";
+import ArchiveProjects from "./pages/staff/ArchiveProjects";
+import BackupData from "./pages/staff/BackupData";
+import ApproveAccounts from "./pages/staff/ApproveAccounts";
 const Placeholder = ({ title }) => (
   <div className="p-8 text-center text-gray-500">
     <h2 className="text-xl font-semibold">{title}</h2>
@@ -42,6 +49,7 @@ const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
   { path: "/guest/projects", element: <GuestProjects /> },
   { path: "/guest/access-request", element: <AccessRequestForm /> },
+  { path: "/signup", element: <SignUp /> },
 
   {
     path: "/student",
@@ -79,8 +87,15 @@ const router = createBrowserRouter([
       { path: "assign-advisors", element: <AssignAdvisors /> },
       { path: "assign-examiners", element: <AssignExaminers /> },
       { path: "manage-projects", element: <ManageProjects /> },
-      { path: "evaluate", element: <EvaluateProjects /> }, // already exists, updated
+      { path: "evaluate", element: <EvaluateProjects /> },
       { path: "coordinator-evaluations", element: <CoordinatorEvaluations /> },
+      { path: "admin-dashboard", element: <AdminDashboard /> },
+      { path: "manage-users", element: <ManageUsers /> },
+      { path: "schedules", element: <Schedules /> },
+      { path: "project-status-admin", element: <ProjectStatusAdmin /> },
+      { path: "archive-projects", element: <ArchiveProjects /> },
+      { path: "backup", element: <BackupData /> },
+      { path: "approve-accounts", element: <ApproveAccounts /> },
     ],
   },
 ]);

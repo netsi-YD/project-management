@@ -25,7 +25,8 @@ const Login = () => {
       if (
         roles.includes("advisor") ||
         roles.includes("examiner") ||
-        roles.includes("project_coordinator")
+        roles.includes("project_coordinator") ||
+        roles.includes("super_admin")
       ) {
         navigate("/staff");
       } else if (roles.includes("guest")) {

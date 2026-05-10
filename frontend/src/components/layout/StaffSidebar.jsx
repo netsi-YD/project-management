@@ -29,14 +29,13 @@ const StaffSidebar = ({ user }) => {
     { label: "Similarity Check", path: "/staff/similarity" },
   ];
   const superAdminMenu = [
-    { label: "Overview", path: "/staff" },
-
-    { label: "Login History", path: "/staff/login-history" },
+    { label: "Overview", path: "/staff/admin-dashboard" },
     { label: "Manage Users", path: "/staff/manage-users" },
-    { label: "Schedule Programs", path: "/staff/schedule" },
-    { label: "Project Status", path: "/staff/project-status" },
-    { label: "Archive Projects", path: "/staff/archive" },
+    { label: "Schedule Programs", path: "/staff/schedules" },
+    { label: "Project Status", path: "/staff/project-status-admin" },
+    { label: "Archive Projects", path: "/staff/archive-projects" },
     { label: "Backup Data", path: "/staff/backup" },
+    { label: "Approve Accounts", path: "/staff/approve-accounts" },
   ];
 
   if (!user || !user.roles) {
@@ -95,8 +94,22 @@ const StaffSidebar = ({ user }) => {
       <div className="mt-auto border-t pt-4">
         <button
           onClick={handleLogout}
-          className="w-full text-left px-6 py-2 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
+          className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 rounded transition-colors"
         >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            />
+          </svg>
           Log out
         </button>
       </div>
