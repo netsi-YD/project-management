@@ -33,5 +33,6 @@ public function submissions()
     'is_delay_notified',
     'advisor_request_status',
     'preferred_advisor_names',
+    'is_archived',
 ];
 }

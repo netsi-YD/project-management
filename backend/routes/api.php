@@ -844,4 +844,156 @@ Route::get('/coordinator/projects-for-assignment', function (Request $request) {
     );
 });
 
+// ========================
+// SUPER ADMIN ROUTES
+// ========================
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Reusable admin role check
+    $isSuperAdmin = function (Request $request) {
+        $roles = $request->user()->roles()->pluck('role_name');
+        return $roles->contains(fn($r) => strtolower($r) === 'super_admin');
+    };
+
+    // 1. Dashboard overview
+    Route::get('/roles', function () {
+    return response()->json(\App\Models\Role::all());
+});
+
+    Route::get('/admin/overview', function (Request $request) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        $totalUsers = \App\Models\User::count();
+        $totalProjects = \App\Models\Project::count();
+        $totalSubmissions = \App\Models\Submission::count();
+        return response()->json([
+            'total_users' => $totalUsers,
+            'total_projects' => $totalProjects,
+            'total_submissions' => $totalSubmissions,
+        ]);
+    });
+
+    // 2. List all users (with roles)
+    Route::get('/admin/users', function (Request $request) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        $users = \App\Models\User::with('roles:role_id,role_name')->get()->map(function($u){
+            return [
+                'user_id' => $u->user_id,
+                'full_name' => $u->full_name,
+                'email' => $u->email,
+                'roles' => $u->roles->pluck('role_name'),
+            ];
+        });
+        return response()->json($users);
+    });
+
+    // 3. Update user's roles (body: { roles: [1,2,3] })
+    Route::put('/admin/users/{id}/role', function (Request $request, $id) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        $user = \App\Models\User::findOrFail($id);
+        $user->roles()->sync($request->roles);
+        return response()->json(['message'=>'Roles updated']);
+    });
+
+    // 4. Delete user
+    Route::delete('/admin/users/{id}', function (Request $request, $id) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        $user = \App\Models\User::findOrFail($id);
+        $user->delete();
+        return response()->json(['message'=>'User deleted']);
+    });
+
+    // 5. Activity logs
+    Route::get('/admin/activity-logs', function (Request $request) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        $logs = \App\Models\ActivityLog::with('user:user_id,full_name')
+            ->orderBy('created_at', 'desc')
+            ->paginate(50);
+        return response()->json($logs);
+    });
+    Route::get('/admin/pending-accounts', function (Request $request) use ($isSuperAdmin) {
+    if (!$isSuperAdmin($request)) return response()->json(['message' => 'Unauthorized'], 403);
+
+    $pending = \App\Models\User::where('status', 'pending')->get();
+    return response()->json($pending);
+});
+Route::put('/admin/approve-account/{id}', function (Request $request, $id) use ($isSuperAdmin) {
+    if (!$isSuperAdmin($request)) return response()->json(['message' => 'Unauthorized'], 403);
+
+    $request->validate([
+        'password' => 'required|string|min:6',
+        'roles'    => 'required|array',           // array of role IDs
+        'roles.*'  => 'integer|exists:roles,role_id',
+    ]);
+
+    $user = \App\Models\User::findOrFail($id);
+    $user->update([
+        'password' => bcrypt($request->password),
+        'status'   => 'active',
+    ]);
+    $user->roles()->sync($request->roles);
+
+    return response()->json([
+        'message'  => 'Account approved. Temporary password: ' . $request->password,
+        'user'     => $user,
+    ]);
+});
+
+    // 6. Schedule programs
+    Route::post('/admin/schedules', function (Request $request) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        $validated = $request->validate([
+            'title' => 'required|string',
+            'deadline' => 'required|date',
+        ]);
+        $schedule = \App\Models\Schedule::create($validated);
+        return response()->json($schedule, 201);
+    });
+
+    Route::get('/admin/schedules', function (Request $request) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        return response()->json(\App\Models\Schedule::orderBy('deadline')->get());
+    });
+
+    Route::delete('/admin/schedules/{id}', function (Request $request, $id) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        \App\Models\Schedule::findOrFail($id)->delete();
+        return response()->json(['message'=>'Schedule deleted']);
+    });
+
+    // 7. Manual project status update
+    Route::put('/admin/projects/{id}/status', function (Request $request, $id) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        $request->validate(['status' => 'required|in:pending,approved,rejected,revision,submitted']);
+        $project = \App\Models\Project::findOrFail($id);
+        $project->update(['status' => $request->status]);
+        return response()->json(['message'=>'Status updated','project'=>$project]);
+    });
+
+    // 8. Archive project
+    Route::put('/admin/projects/{id}/archive', function (Request $request, $id) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        $project = \App\Models\Project::findOrFail($id);
+        $project->update(['is_archived' => true]);
+        return response()->json(['message'=>'Project archived']);
+    });
+
+    // 9. List archived projects
+    Route::get('/admin/archive-projects', function (Request $request) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        $projects = \App\Models\Project::where('is_archived', true)->with('student:user_id,full_name')->get();
+        return response()->json($projects);
+    });
+
+    // 10. Backup (simulated)
+    Route::post('/admin/backup', function (Request $request) use ($isSuperAdmin) {
+        if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+        // In a real app you would trigger a DB dump here. We'll just log it.
+        \App\Models\ActivityLog::create([
+            'user_id' => $request->user()->user_id,
+            'action' => 'Backup initiated by super admin',
+            'ip_address' => $request->ip(),
+        ]);
+        return response()->json(['message'=>'Backup initiated successfully']);
+    });
+});
+
 });

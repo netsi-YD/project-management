@@ -12,29 +12,38 @@ class AuthController extends Controller
    public function register(Request $request)
 {
     $request->validate([
-        'full_name' => 'required',
-        'email' => 'required|email|unique:user,email',
-        'password' => 'required|min:6',
-        'phone_number' => 'nullable',
-        'gender' => 'nullable'
+        'full_name'       => 'required|string|max:255',
+        'email'           => 'required|email|unique:user,email',
+        'phone_number'    => 'nullable|string|max:20',
+        'gender'          => 'nullable|in:male,female',
+        'institution_id'  => 'required|string|max:50',
+        'department'      => 'required|string|max:100',
+        'requested_roles' => 'required|array',                    // multiple roles
+        'requested_roles.*' => 'string|in:Student,Advisor,Examiner,Department_Head,Project_Coordinator',
+        'year_of_study'   => 'nullable|in:1st,2nd,3rd,4th,5th',
     ]);
+
+    // If one of the requested roles is Student, year_of_study must be given
+    if (in_array('Student', $request->requested_roles) && !$request->year_of_study) {
+        return response()->json(['message' => 'Year of study is required for students.'], 422);
+    }
 
     $user = User::create([
-        'full_name' => $request->full_name,
-        'email' => $request->email,
-        'password' => bcrypt($request->password),
-        'phone_number' => $request->phone_number,
-        'gender' => $request->gender,
-        'status' => 'active'
+        'full_name'       => $request->full_name,
+        'email'           => $request->email,
+        'password'        => bcrypt(''),
+        'phone_number'    => $request->phone_number,
+        'gender'          => $request->gender,
+        'institution_id'  => $request->institution_id,
+        'department'      => $request->department,
+        'year_of_study'   => $request->year_of_study,
+        'requested_role'  => implode(', ', $request->requested_roles),  // store as comma-separated
+        'status'          => 'pending',
     ]);
-
-    $token = $user->createToken('auth_token')->plainTextToken;
 
     return response()->json([
-        'message' => 'User registered successfully',
-        'token' => $token,
-        'user' => $user
-    ]);
+        'message' => 'Registration submitted. Await admin approval.',
+    ], 201);
 }
     public function login(Request $request)
     {
