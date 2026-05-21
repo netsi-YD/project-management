@@ -19,14 +19,15 @@ const Login = () => {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("roles", JSON.stringify(data.roles)); // ← new line
-
+      localStorage.setItem("user_id", data.user_id);
       const roles = (data.roles || []).map((r) => r.toLowerCase());
 
       if (
         roles.includes("advisor") ||
         roles.includes("examiner") ||
         roles.includes("project_coordinator") ||
-        roles.includes("super_admin")
+        roles.includes("super_admin") ||
+        roles.includes("department_head") // ← add this
       ) {
         navigate("/staff");
       } else if (roles.includes("guest")) {

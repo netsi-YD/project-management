@@ -1,34 +1,69 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import api from "../../api/axios";
 
 const Submissions = () => {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    api
-      .get("/advisor/submissions")
-      .then((res) => setSubmissions(res.data || []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    const fetchSubmissions = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await api.get("/advisor/submissions", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSubmissions(res.data);
+      } catch (err) {
+        setError("Failed to load submissions");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubmissions();
   }, []);
 
-  if (loading) return <p className="text-gray-500">Loading…</p>;
+  if (loading) return <div className="p-4">Loading...</div>;
+  if (error) return <div className="p-4 text-red-500">{error}</div>;
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold text-[#1f67a8] mb-4">Submissions</h2>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Student Submissions</h1>
       {submissions.length === 0 ? (
-        <p className="text-gray-500">No submissions yet.</p>
+        <p>No submissions yet.</p>
       ) : (
-        <div className="space-y-3">
-          {submissions.map((s) => (
-            <div key={s.id} className="bg-white rounded border p-3 shadow-sm">
-              <p className="font-medium">{s.project?.title}</p>
-              <p className="text-sm text-gray-500">
-                Type: {s.type} | Uploaded:{" "}
-                {new Date(s.created_at).toLocaleString()}
-              </p>
+        <div className="space-y-4">
+          {submissions.map((sub) => (
+            <div
+              key={sub.id}
+              className="border p-4 rounded shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            >
+              <div className="flex-1">
+                <h3 className="font-semibold">{sub.project_title}</h3>
+                <p className="text-sm text-gray-600">
+                  Type: {sub.type} | Date:{" "}
+                  {new Date(sub.created_at).toLocaleDateString()}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {sub.file_url && (
+                  <a
+                    href={sub.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                  >
+                    View File
+                  </a>
+                )}
+                <Link
+                  to={`/staff/reviews?project_id=${sub.project_id}`}
+                  className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 text-sm"
+                >
+                  Review
+                </Link>
+              </div>
             </div>
           ))}
         </div>

@@ -17,7 +17,6 @@ import AITitleSuggestions from "./pages/student/AITitleSuggestions";
 import SimilarityCheck from "./pages/student/SimilarityCheck";
 import StaffDashboard from "./pages/staff/Dashboard";
 import StaffLayout from "./components/layout/StaffLayout";
-import MyGroups from "./pages/staff/MyGroups";
 import AdvisorRequests from "./pages/staff/AdvisorRequests";
 import Submissions from "./pages/staff/Submissions";
 import Reviews from "./pages/staff/Reviews";
@@ -37,13 +36,22 @@ import ProjectStatusAdmin from "./pages/staff/ProjectStatus";
 import ArchiveProjects from "./pages/staff/ArchiveProjects";
 import BackupData from "./pages/staff/BackupData";
 import ApproveAccounts from "./pages/staff/ApproveAccounts";
-const Placeholder = ({ title }) => (
-  <div className="p-8 text-center text-gray-500">
-    <h2 className="text-xl font-semibold">{title}</h2>
-    <p className="mt-2">Coming soon</p>
-  </div>
-);
-
+import ImportUsers from "./pages/staff/ImportUsers";
+import AdvisorRequestsPage from "./pages/staff/AdvisorRequestsPage";
+import CoordinatorGroups from "./pages/staff/CoordinatorGroups";
+import StudentMessages from "./pages/student/StudentMessages";
+import MyGroups from "./pages/student/MyGroups";
+import DeptHeadDashboard from "./pages/staff/DeptHeadDashboard";
+import DeptHeadArchive from "./pages/staff/DeptHeadArchive";
+import ProjectReport from "./pages/staff/ProjectReport";
+import DeptHeadProjects from "./pages/staff/DeptHeadProjects";
+import DeptHeadEvaluations from "./pages/staff/DeptHeadEvaluations";
+import AdvisorGroups from "./pages/staff/AdvisorGroups";
+import AdvisorProjectDetail from "./pages/staff/AdvisorProjectDetail";
+import CoordinatorProjectEvaluations from "./pages/staff/CoordinatorProjectEvaluations";
+import ExaminerProjectDetail from "./pages/staff/ExaminerProjectDetail";
+import ExaminerFeedback from "./pages/staff/ExaminerFeedback";
+import ViewFeedback from "./pages/student/ViewFeedback";
 const router = createBrowserRouter([
   { path: "/", element: <PublicGuestHome /> },
   { path: "/login", element: <Login /> },
@@ -66,6 +74,9 @@ const router = createBrowserRouter([
       { path: "create-project", element: <CreateProject /> },
       { path: "ai-title-suggestions", element: <AITitleSuggestions /> },
       { path: "similarity-check", element: <SimilarityCheck /> },
+      { path: "my-groups", element: <MyGroups /> },
+      { path: "messages", element: <StudentMessages /> },
+      { path: "feedback/:projectId", element: <ViewFeedback /> },
     ],
   },
   {
@@ -74,10 +85,6 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <StaffDashboard /> },
       { path: "dashboard", element: <StaffDashboard /> },
-
-      { path: "my-groups", element: <MyGroups /> },
-
-      { path: "advisor-requests", element: <AdvisorRequests /> },
       { path: "submissions", element: <Submissions /> },
       { path: "reviews", element: <Reviews /> },
       { path: "messages", element: <Messages /> },
@@ -96,6 +103,29 @@ const router = createBrowserRouter([
       { path: "archive-projects", element: <ArchiveProjects /> },
       { path: "backup", element: <BackupData /> },
       { path: "approve-accounts", element: <ApproveAccounts /> },
+      { path: "import-users", element: <ImportUsers /> },
+      { path: "advisor-requests", element: <AdvisorRequestsPage /> },
+      { path: "coordinator-groups", element: <CoordinatorGroups /> },
+      { path: "dept-head-dashboard", element: <DeptHeadDashboard /> },
+      { path: "dept-projects", element: <DeptHeadProjects /> },
+      { path: "dept-evaluations", element: <DeptHeadEvaluations /> },
+      { path: "dept-archive", element: <DeptHeadArchive /> },
+      { path: "project-report/:projectId", element: <ProjectReport /> },
+      { path: "advisor-groups", element: <AdvisorGroups /> },
+      { path: "examiner-feedback", element: <ExaminerFeedback /> },
+
+      {
+        path: "advisor/projects/:projectId",
+        element: <AdvisorProjectDetail />,
+      },
+      {
+        path: "coordinator/project-evaluations/:projectId",
+        element: <CoordinatorProjectEvaluations />,
+      },
+      {
+        path: "examiner/projects/:projectId",
+        element: <ExaminerProjectDetail />,
+      },
     ],
   },
 ]);

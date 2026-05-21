@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 
 const Reviews = () => {
@@ -9,10 +10,17 @@ const Reviews = () => {
   const [status, setStatus] = useState(""); // 'approved' or 'rejected'
   const [message, setMessage] = useState("");
 
+  const [searchParams] = useSearchParams();
+  const preselectedProjectId = searchParams.get("project_id");
+
   const fetchProjects = async () => {
     try {
       const res = await api.get("/advisor/projects");
       setProjects(res.data || []);
+      // Auto-open the review form if a project_id was passed in the URL
+      if (preselectedProjectId) {
+        setReviewing(Number(preselectedProjectId));
+      }
     } catch (err) {
       console.error(err);
     } finally {

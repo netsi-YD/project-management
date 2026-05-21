@@ -11,6 +11,10 @@ class Project extends Model
 {
     return $this->belongsTo(User::class, 'student_id', 'user_id');
 }
+public function group()
+{
+    return $this->hasOne(\App\Models\ProjectGroup::class, 'project_id');
+}
 public function submissions()
 {
     return $this->hasMany(Submission::class, 'project_id');

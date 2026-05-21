@@ -16,4 +16,6 @@ protected $fillable = [
 protected $casts = [
     'detailed_marks' => 'array',
 ];
+public function evaluator() { return $this->belongsTo(\App\Models\User::class, 'evaluator_id'); }
+public function student()  { return $this->belongsTo(\App\Models\User::class, 'student_id'); }
 }

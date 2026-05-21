@@ -34,14 +34,22 @@ const ManageUsers = () => {
     }
   };
 
-  const handleDelete = async (userId) => {
-    if (!window.confirm("Delete this user?")) return;
+  const handleDeactivate = async (userId) => {
+    if (!window.confirm("Deactivate this user?")) return;
     try {
-      await api.delete(`/admin/users/${userId}`);
-      const res = await api.get("/admin/users");
-      setUsers(res.data || []);
+      await api.put(`/admin/users/${userId}/deactivate`);
+      fetchUsers();
     } catch (err) {
-      alert("Failed to delete user");
+      alert("Failed to deactivate user");
+    }
+  };
+
+  const handleActivate = async (userId) => {
+    try {
+      await api.put(`/admin/users/${userId}/activate`);
+      fetchUsers();
+    } catch (err) {
+      alert("Failed to activate user");
     }
   };
 
@@ -71,6 +79,7 @@ const ManageUsers = () => {
                 <tr key={u.user_id} className="border-b">
                   <td className="py-2">{u.full_name}</td>
                   <td className="py-2">{u.email}</td>
+
                   <td className="py-2">{(u.roles || []).join(", ")}</td>
                   <td className="py-2">
                     <select
@@ -92,12 +101,32 @@ const ManageUsers = () => {
                     </select>
                   </td>
                   <td className="py-2">
-                    <button
-                      onClick={() => handleDelete(u.user_id)}
-                      className="text-red-600 hover:underline"
+                    <span
+                      className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                        u.status === "active"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
                     >
-                      Delete
-                    </button>
+                      {u.status || "active"}
+                    </span>
+                  </td>
+                  <td className="py-2">
+                    {u.status === "active" ? (
+                      <button
+                        onClick={() => handleDeactivate(u.user_id)}
+                        className="text-red-600 hover:underline"
+                      >
+                        Deactivate
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleActivate(u.user_id)}
+                        className="text-[#1f67a8] hover:underline"
+                      >
+                        Activate
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
