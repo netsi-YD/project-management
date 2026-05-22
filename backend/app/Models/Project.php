@@ -39,4 +39,8 @@ public function submissions()
     'preferred_advisor_names',
     'is_archived',
 ];
+public function evaluations()
+{
+    return $this->hasMany(\App\Models\Evaluation::class, 'project_id');
+}
 }

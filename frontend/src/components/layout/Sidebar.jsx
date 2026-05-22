@@ -133,15 +133,19 @@ const Sidebar = () => {
 
   return (
     <aside className="w-56 bg-white border-r border-gray-200 flex flex-col">
-      {/* Logo */}
-      <div className="h-16 flex items-center justify-center border-b border-gray-200 shrink-0">
-        <h1 className="text-base font-bold text-[#1f67a8]">UoG FYP Portal</h1>
+      <div className="shrink-0 border-b border-gray-200 p-4 flex flex-col items-center">
+        <img
+          src="/image/logo.png"
+          alt="University of Gondar"
+          className="h-16 w-auto mb-2"
+        />
+        <h1 className="text-xs font-semibold text-[#1f67a8] text-center leading-tight">
+          UoG Final Year Project Management Portal
+        </h1>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 py-3 overflow-y-auto">
         {groups.map((group) => {
-          /* ── Single top-level link (Dashboard) ── */
           if (group.single) {
             return (
               <NavLink
@@ -161,7 +165,6 @@ const Sidebar = () => {
             );
           }
 
-          /* ── Collapsible group ── */
           const isGroupActive = group.children.some((c) =>
             location.pathname.startsWith(c.to),
           );
@@ -169,7 +172,6 @@ const Sidebar = () => {
 
           return (
             <div key={group.label}>
-              {/* Group header button */}
               <button
                 onClick={() => toggle(group.label)}
                 className={`w-full flex items-center px-4 py-2.5 text-sm font-medium transition-colors ${

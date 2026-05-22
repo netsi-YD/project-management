@@ -147,7 +147,7 @@ const AdvisorCollaboration = () => {
                 <button
                   type="submit"
                   disabled={sending}
-                  className="bg-blue-800 text-white px-6 py-2 rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
+                  className="bg-[#1f67a8] text-white px-6 py-2 rounded-lg hover:bg-[#185a8c] transition-colors disabled:opacity-50"
                 >
                   {sending ? "Sending…" : "Send"}
                 </button>

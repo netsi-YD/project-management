@@ -27,7 +27,7 @@ const Login = () => {
         roles.includes("examiner") ||
         roles.includes("project_coordinator") ||
         roles.includes("super_admin") ||
-        roles.includes("department_head") // ← add this
+        roles.includes("department_head")
       ) {
         navigate("/staff");
       } else if (roles.includes("guest")) {
@@ -58,7 +58,7 @@ const Login = () => {
           </div>
           <div className="login-header">
             <h2>University of Gondar</h2>
-            <h3>Project Management System</h3>
+            <h3> Final Year Project Management Portal</h3>
             <p>Sign in to your account</p>
           </div>
         </div>
@@ -85,26 +85,10 @@ const Login = () => {
               autoComplete="current-password"
             />
           </div>
-          <div className="form-options">
-            <label className="remember-me">
-              <input type="checkbox" /> <span>Remember me</span>
-            </label>
-            <a href="/forgot-password" className="forgot-password">
-              Forgot password?
-            </a>
-          </div>
+
           <button type="submit" className="login-btn">
             Log in
           </button>
-          <div className="signup-section">
-            <p>
-              Don't have an account? <a href="/signup">Sign up</a>
-            </p>
-            <p className="terms-text">
-              By signing up or logging in, you consent to University of Gondar's
-              Terms of Use and Privacy Policy.
-            </p>
-          </div>
         </form>
       </div>
     </div>

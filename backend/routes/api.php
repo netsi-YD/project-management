@@ -23,7 +23,6 @@ Route::post('/guest/request-access', [GuestDashboardController::class, 'requestA
 Route::get('/guest/access-status', [GuestDashboardController::class, 'status']);
 Route::get('/public-projects', [GuestDashboardController::class, 'publicProjects']);
 
-Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -830,135 +829,169 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::post('/evaluation/submit', function (Request $request) {
-        $user = $request->user();
-        $roles = $user->roles()->pluck('role_name')->map(fn($r) => strtolower($r));
-        if (!$roles->contains('advisor') && !$roles->contains('examiner')) {
-            return response()->json(['message' => 'Unauthorized – Advisor or Examiner role required'], 403);
+    $user = $request->user();
+    $roles = $user->roles()->pluck('role_name')->map(fn($r) => strtolower($r));
+    if (!$roles->contains('advisor') && !$roles->contains('examiner')) {
+        return response()->json(['message' => 'Unauthorized – Advisor or Examiner role required'], 403);
+    }
+    if (!$request->student_id && $request->has('project_id')) {
+        return response()->json(['message' => 'student_id is required for evaluation'], 422);
+    }
+    $request->validate([
+        'project_id'          => 'required|exists:project,project_id',
+        'student_id'          => 'nullable|integer|exists:user,user_id',
+        'evaluator_type'      => 'required|in:advisor,examiner',
+        'detailed_marks'      => 'nullable|array',
+        'student_comments'    => 'nullable|string',
+        'coordinator_remarks' => 'nullable|string',
+        'submit'              => 'nullable|boolean',
+        'feedback_only'       => 'nullable|boolean',
+    ]);
+
+    if ($request->evaluator_type === 'advisor' && !$roles->contains('advisor')) {
+        return response()->json(['message' => 'You are not an Advisor'], 403);
+    }
+    if ($request->evaluator_type === 'examiner' && !$roles->contains('examiner')) {
+        return response()->json(['message' => 'You are not an Examiner'], 403);
+    }
+
+    $status = 'draft';
+    $totalMarks = null;
+    if ($request->feedback_only) {
+        if (empty($request->student_comments)) {
+            return response()->json(['message' => 'Student comments are required for feedback.'], 422);
         }
-        if (!$request->student_id && $request->has('project_id')) {
-            return response()->json(['message' => 'student_id is required for evaluation'], 422);
+        $status = 'review';
+    } elseif ($request->submit) {
+        if (empty($request->detailed_marks)) {
+            return response()->json(['message' => 'Detailed marks are required for final submission.'], 422);
         }
-        $request->validate([
-            'project_id'          => 'required|exists:project,project_id',
-            'student_id'          => 'nullable|integer|exists:user,user_id',
-            'evaluator_type'      => 'required|in:advisor,examiner',
-            'detailed_marks'      => 'nullable|array',
-            'student_comments'    => 'nullable|string',
-            'coordinator_remarks' => 'nullable|string',
-            'submit'              => 'nullable|boolean',
-            'feedback_only'       => 'nullable|boolean',
+        $status = 'submitted';
+        $totalMarks = array_sum(array_values($request->detailed_marks));
+    }
+
+    // ---- PERMANENT FIX: reuse row with NULL student_id if exists ----
+    $existing = \App\Models\Evaluation::where('project_id', $request->project_id)
+        ->where('evaluator_id', $user->user_id)
+        ->where('evaluator_type', $request->evaluator_type)
+        ->where(function ($q) use ($request) {
+            $q->where('student_id', $request->student_id)
+              ->orWhereNull('student_id');
+        })
+        ->first();
+
+    if ($existing) {
+        $existing->update([
+            'student_id'          => $request->student_id,
+            'detailed_marks'      => $request->detailed_marks ?? [],
+            'total_marks'          => $totalMarks,
+            'student_comments'     => $request->student_comments,
+            'coordinator_remarks'  => $request->coordinator_remarks,
+            'status'               => $status,
         ]);
+        $evaluation = $existing;
+    } else {
+        $evaluation = \App\Models\Evaluation::create([
+            'project_id'          => $request->project_id,
+            'student_id'          => $request->student_id,
+            'evaluator_id'        => $user->user_id,
+            'evaluator_type'      => $request->evaluator_type,
+            'detailed_marks'      => $request->detailed_marks ?? [],
+            'total_marks'          => $totalMarks,
+            'student_comments'     => $request->student_comments,
+            'coordinator_remarks'  => $request->coordinator_remarks,
+            'status'               => $status,
+        ]);
+    }
+    // ----------------------------------------------------------------
 
-        if ($request->evaluator_type === 'advisor' && !$roles->contains('advisor')) {
-            return response()->json(['message' => 'You are not an Advisor'], 403);
-        }
-        if ($request->evaluator_type === 'examiner' && !$roles->contains('examiner')) {
-            return response()->json(['message' => 'You are not an Examiner'], 403);
-        }
+    $notifyUserId = $request->student_id ?? optional(\App\Models\Project::find($request->project_id))->student_id;
 
-        $status = 'draft';
-        $totalMarks = null;
-        if ($request->feedback_only) {
-            if (empty($request->student_comments)) {
-                return response()->json(['message' => 'Student comments are required for feedback.'], 422);
-            }
-            $status = 'review';
-        } elseif ($request->submit) {
-            if (empty($request->detailed_marks)) {
-                return response()->json(['message' => 'Detailed marks are required for final submission.'], 422);
-            }
-            $status = 'submitted';
-            $totalMarks = array_sum(array_values($request->detailed_marks));
-        }
+    if ($notifyUserId && in_array($status, ['review', 'submitted'])) {
+        $project = \App\Models\Project::find($request->project_id);
+        $studentName = $request->student_id ? \App\Models\User::find($request->student_id)->full_name : 'you';
+        $msg = $status === 'review'
+            ? "Your advisor left feedback for project \"{$project->title}\"."
+            : "Your evaluation for project \"{$project->title}\" has been completed. Check your marks.";
+        \App\Models\Notification::create([
+            'user_id'         => $notifyUserId,
+            'message_type'    => 'evaluation',
+            'message_content' => $msg,
+            'is_read'         => false,
+            'sent_at'         => now(),
+        ]);
+    }
 
-        $uniqueKeys = [
-            'project_id'     => $request->project_id,
-            'evaluator_id'   => $user->user_id,
-            'evaluator_type' => $request->evaluator_type,
-        ];
-        if ($request->student_id) {
-            $uniqueKeys['student_id'] = $request->student_id;
-        }
+    ActivityLog::create([
+        'user_id'    => $user->user_id,
+        'action'     => "Submitted " . $request->evaluator_type . " evaluation for project ID " . $request->project_id . ($request->student_id ? " (student ID {$request->student_id})" : ""),
+        'ip_address' => $request->ip(),
+    ]);
 
-        $evaluation = \App\Models\Evaluation::updateOrCreate(
-            $uniqueKeys,
-            [
-                'detailed_marks'      => $request->detailed_marks ?? [],
-                'total_marks'          => $totalMarks,
-                'student_comments'     => $request->student_comments,
-                'coordinator_remarks'  => $request->coordinator_remarks,
-                'status'               => $status,
+    return response()->json(['message' => 'Evaluation saved', 'evaluation' => $evaluation]);
+});
+
+Route::get('/coordinator/evaluations/{project_id}', function (Request $request, $project_id) {
+    $roles = $request->user()->roles()->pluck('role_name')->map(fn($r) => strtolower($r));
+    if (!$roles->contains('project_coordinator')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    // 1. Load project with group members and their user info
+    $project = \App\Models\Project::with(['group.members.user:user_id,full_name'])->find($project_id);
+    if (!$project) {
+        return response()->json(['message' => 'Project not found'], 404);
+    }
+
+    // 2. Get all evaluations for this project
+    $evaluations = \App\Models\Evaluation::where('project_id', $project_id)->get();
+
+    // 3. Group evaluations by student_id
+    $evalByStudent = $evaluations->groupBy('student_id');
+
+    // 4. Build result from group members (or fallback to project owner)
+    $members = $project->group ? $project->group->members : collect();
+    if ($members->isEmpty() && $project->student_id) {
+        $members = collect([
+            (object)[
+                'user_id' => $project->student_id,
+                'user' => \App\Models\User::find($project->student_id),
+                'student_campus_id' => 'N/A'
             ]
-        );
-
-        $notifyUserId = $request->student_id ?? optional(\App\Models\Project::find($request->project_id))->student_id;
-
-        if ($notifyUserId && in_array($status, ['review', 'submitted'])) {
-            $project = \App\Models\Project::find($request->project_id);
-            $studentName = $request->student_id ? \App\Models\User::find($request->student_id)->full_name : 'you';
-            $msg = $status === 'review'
-                ? "Your advisor left feedback for project \"{$project->title}\"."
-                : "Your evaluation for project \"{$project->title}\" has been completed. Check your marks.";
-            \App\Models\Notification::create([
-                'user_id'         => $notifyUserId,
-                'message_type'    => 'evaluation',
-                'message_content' => $msg,
-                'is_read'         => false,
-                'sent_at'         => now(),
-            ]);
-        }
-
-        ActivityLog::create([
-            'user_id'    => $user->user_id,
-            'action'     => "Submitted " . $request->evaluator_type . " evaluation for project ID " . $request->project_id . ($request->student_id ? " (student ID {$request->student_id})" : ""),
-            'ip_address' => $request->ip(),
         ]);
+    }
 
-        return response()->json(['message' => 'Evaluation saved', 'evaluation' => $evaluation]);
-    });
+    $result = $members->map(function ($member) use ($evalByStudent) {
+        $studentId = $member->user_id;
+        $studentEvals = $evalByStudent->get($studentId, collect());
 
-    Route::get('/coordinator/evaluations/{project_id}', function (Request $request, $project_id) {
-        $roles = $request->user()->roles()->pluck('role_name')->map(fn($r) => strtolower($r));
-        if (!$roles->contains('project_coordinator')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        $advisorEval = $studentEvals->where('evaluator_type', 'advisor')->first();
+        $examinerEval = $studentEvals->where('evaluator_type', 'examiner')->first();
 
-        $evaluations = \App\Models\Evaluation::where('project_id', $project_id)
-            ->get()
-            ->groupBy('student_id')
-            ->map(function ($evals, $studentId) {
-                $advisorEval = $evals->where('evaluator_type', 'advisor')->first();
-                $examinerEval = $evals->where('evaluator_type', 'examiner')->first();
+        $studentName = $member->user->full_name ?? 'Unknown';
+        $advisorName = $advisorEval ? (\App\Models\User::find($advisorEval->evaluator_id)->full_name ?? 'N/A') : null;
+        $examinerName = $examinerEval ? (\App\Models\User::find($examinerEval->evaluator_id)->full_name ?? 'N/A') : null;
 
-                $studentName = 'Unknown';
-                if ($studentId) {
-                    $student = \App\Models\User::find($studentId);
-                    $studentName = $student ? $student->full_name : 'Unknown';
-                }
+        return [
+            'student_id'   => $studentId,
+            'student_name' => $studentName,
+            'advisor'      => $advisorEval ? [
+                'evaluation_id' => $advisorEval->id,
+                'evaluator_name'=> $advisorName,
+                'total_marks'   => $advisorEval->total_marks,
+                'status'        => $advisorEval->status,
+            ] : null,
+            'examiner'     => $examinerEval ? [
+                'evaluation_id' => $examinerEval->id,
+                'evaluator_name'=> $examinerName,
+                'total_marks'   => $examinerEval->total_marks,
+                'status'        => $examinerEval->status,
+            ] : null,
+        ];
+    })->values();
 
-                $advisorName = $advisorEval ? (\App\Models\User::find($advisorEval->evaluator_id)->full_name ?? 'N/A') : null;
-                $examinerName = $examinerEval ? (\App\Models\User::find($examinerEval->evaluator_id)->full_name ?? 'N/A') : null;
-
-                return [
-                    'student_id'    => $studentId ?? 'unknown',
-                    'student_name'  => $studentName,
-                    'advisor'       => $advisorEval ? [
-                        'evaluation_id'  => $advisorEval->id,
-                        'evaluator_name' => $advisorName,
-                        'total_marks'    => $advisorEval->total_marks,
-                        'status'         => $advisorEval->status,
-                    ] : null,
-                    'examiner'      => $examinerEval ? [
-                        'evaluation_id'  => $examinerEval->id,
-                        'evaluator_name' => $examinerName,
-                        'total_marks'    => $examinerEval->total_marks,
-                        'status'         => $examinerEval->status,
-                    ] : null,
-                ];
-            })->values();
-
-        return response()->json($evaluations);
-    });
+    return response()->json($result);
+});    
 
     Route::put('/coordinator/forward-evaluation/{evaluation_id}', function (Request $request, $evaluation_id) {
         $roles = $request->user()->roles()->pluck('role_name')->map(fn($r) => strtolower($r));
@@ -1031,6 +1064,11 @@ Route::middleware('auth:sanctum')->group(function () {
                    'full_name' => $u->full_name,
                    'email'     => $u->email,
                    'status'    => $u->status,
+            'department' => $u->department, 
+                   'created_at'=> $u->created_at,
+                   'updated_at'=> $u->updated_at,
+
+                   
                    'roles'     => $u->roles->pluck('role_name'),
                 ];
             });
@@ -1043,6 +1081,22 @@ Route::middleware('auth:sanctum')->group(function () {
             $user->roles()->sync($request->roles);
             return response()->json(['message'=>'Roles updated']);
         });
+
+        Route::put('/admin/users/{id}/role', function (Request $request, $id) use ($isSuperAdmin) {
+    if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+    $user = \App\Models\User::findOrFail($id);
+    $request->validate(['roles' => 'required|array', 'roles.*' => 'integer|exists:roles,role_id']);
+    $user->roles()->sync($request->roles);
+
+    // Log the role change
+    ActivityLog::create([
+        'user_id'    => $request->user()->user_id,
+        'action'     => "Updated roles for user ID {$id} ({$user->full_name})",
+        'ip_address' => $request->ip(),
+    ]);
+
+    return response()->json(['message'=>'Roles updated']);
+});
 
         Route::put('/admin/users/{id}/deactivate', function (Request $request, $id) use ($isSuperAdmin) {
             if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
@@ -1075,6 +1129,14 @@ Route::middleware('auth:sanctum')->group(function () {
                 ->paginate(50);
             return response()->json($logs);
         });
+
+        Route::get('/admin/notifications', function (Request $request) use ($isSuperAdmin) {
+    if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+    $notifications = \App\Models\Notification::with('user:user_id,full_name')
+        ->orderBy('sent_at', 'desc')
+        ->paginate(30);
+    return response()->json($notifications);
+});
 
         Route::get('/admin/pending-accounts', function (Request $request) use ($isSuperAdmin) {
             if (!$isSuperAdmin($request)) return response()->json(['message' => 'Unauthorized'], 403);
@@ -1148,15 +1210,102 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json($projects);
         });
 
-        Route::post('/admin/backup', function (Request $request) use ($isSuperAdmin) {
-            if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
-            \App\Models\ActivityLog::create([
-                'user_id' => $request->user()->user_id,
-                'action' => 'Backup initiated by super admin',
-                'ip_address' => $request->ip(),
-            ]);
-            return response()->json(['message'=>'Backup initiated successfully']);
-        });
+        // List all existing backups
+Route::get('/admin/backups', function (Request $request) use ($isSuperAdmin) {
+    if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+    $backupDir = storage_path('app/backups');
+    if (!is_dir($backupDir)) {
+        return response()->json([]);
+    }
+    $files = collect(scandir($backupDir))
+        ->filter(fn($f) => $f !== '.' && $f !== '..' && str_ends_with($f, '.zip'))
+        ->map(function ($file) use ($backupDir) {
+            $path = $backupDir . '/' . $file;
+            return [
+                'filename' => $file,
+                'size' => filesize($path),
+                'created_at' => filemtime($path),
+            ];
+        })
+        ->sortByDesc('created_at')
+        ->values();
+    return response()->json($files);
+});
+
+// Create a new backup (database + storage files)
+Route::post('/admin/backup', function (Request $request) use ($isSuperAdmin) {
+    if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+
+    $backupDir = storage_path('app/backups');
+    if (!is_dir($backupDir)) {
+        mkdir($backupDir, 0755, true);
+    }
+
+    $timestamp = now()->format('Y-m-d_H-i-s');
+    $zipFileName = "backup-{$timestamp}.zip";
+    $zipPath = $backupDir . '/' . $zipFileName;
+
+    // 1. Database dump
+    $dbDumpPath = $backupDir . '/temp_db_dump.sql';
+    $db = config('database.connections.mysql');
+    $command = sprintf(
+        'mysqldump --user=%s --password=%s --host=%s %s > %s 2>&1',
+        escapeshellarg($db['username']),
+        escapeshellarg($db['password']),
+        escapeshellarg($db['host']),
+        escapeshellarg($db['database']),
+        escapeshellarg($dbDumpPath)
+    );
+    exec($command, $output, $resultCode);
+    if ($resultCode !== 0) {
+        return response()->json([
+            'message' => 'Database dump failed. Check mysqldump availability.',
+            'error' => implode("\n", $output),
+        ], 500);
+    }
+
+    // 2. Create zip containing SQL dump + storage folder
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
+        unlink($dbDumpPath);
+        return response()->json(['message' => 'Could not create ZIP file.'], 500);
+    }
+
+    $zip->addFile($dbDumpPath, 'database.sql');
+    // Add all storage files (excluding backups themselves)
+    $storagePath = storage_path('app/public');
+    $files = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($storagePath, RecursiveDirectoryIterator::SKIP_DOTS)
+    );
+    foreach ($files as $file) {
+        $filePath = $file->getRealPath();
+        $relativePath = 'storage/' . substr($filePath, strlen($storagePath) + 1);
+        $zip->addFile($filePath, $relativePath);
+    }
+    $zip->close();
+
+    // 3. Cleanup temp dump
+    unlink($dbDumpPath);
+
+    // 4. Log
+    ActivityLog::create([
+        'user_id'    => $request->user()->user_id,
+        'action'     => "Created backup {$zipFileName}",
+        'ip_address' => $request->ip(),
+    ]);
+
+    return response()->json(['message' => 'Backup created successfully.', 'filename' => $zipFileName]);
+});
+
+// Download a specific backup
+Route::get('/admin/backups/{filename}', function ($filename, Request $request) use ($isSuperAdmin) {
+    if (!$isSuperAdmin($request)) return response()->json(['message'=>'Unauthorized'], 403);
+    $path = storage_path('app/backups/' . basename($filename));
+    if (!file_exists($path)) {
+        abort(404);
+    }
+    return response()->download($path);
+})->where('filename', '.*');
 
         Route::post('/admin/import-users', function (Request $request) use ($isSuperAdmin) {
             if (!$isSuperAdmin($request)) return response()->json(['message' => 'Unauthorized'], 403);
@@ -1487,17 +1636,134 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::get('/dept-head/projects', function (Request $request) {
-        $roles = $request->user()->roles()->pluck('role_name');
-        if (!$roles->contains('Department_Head')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-        $department = $request->user()->department;
-        $projects = \App\Models\Project::whereHas('student', fn($q) => $q->where('department', $department))
-            ->with('student:user_id,full_name,department')
-            ->orderBy('project_id', 'desc')
-            ->paginate(20);
-        return response()->json($projects);
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains('Department_Head')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    $department = $request->user()->department;
+
+    $projects = \App\Models\Project::whereHas('student', fn($q) => $q->where('department', $department))
+        ->with('student:user_id,full_name')
+        ->orderBy('project_id', 'desc')
+        ->paginate(20);
+
+    $projects->getCollection()->transform(function ($project) {
+        $log = \App\Models\ActivityLog::where(function ($query) use ($project) {
+            $query->where('action', 'like', "%Changed project ID {$project->project_id} status%")
+                  ->orWhere('action', 'like', "%Coordinator {$project->status} project ID {$project->project_id}%");
+        })->latest()->first();
+        $project->status_updated_by = $log ? ($log->user->full_name ?? 'Unknown') : null;
+        return $project;
     });
+
+    return response()->json($projects);
+});
+
+   Route::get('/dept-head/projects/{project}', function (Request $request, $project) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains('Department_Head')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    $department = $request->user()->department;
+
+    $project = \App\Models\Project::where('project_id', $project)
+        ->whereHas('student', fn($q) => $q->where('department', $department))
+        ->with([
+            'student:user_id,full_name,department',
+            'group.members.user:user_id,full_name',
+            'submissions' => function ($q) {
+                $q->orderBy('created_at', 'desc');
+            },
+        ])
+        ->first();
+
+    if (!$project) {
+        return response()->json(['message' => 'Project not found in your department'], 404);
+    }
+
+    $project->submissions->transform(function ($sub) {
+        $sub->file_url = $sub->file_path ? url('storage/' . $sub->file_path) : null;
+        return $sub;
+    });
+
+    $log = \App\Models\ActivityLog::where(function ($query) use ($project) {
+        $query->where('action', 'like', "%Changed project ID {$project->project_id} status%")
+              ->orWhere('action', 'like', "%Coordinator {$project->status} project ID {$project->project_id}%");
+    })->latest()->first();
+    $project->status_updated_by = $log ? ($log->user->full_name ?? 'Unknown') : null;
+
+    return response()->json(['project' => $project]);
+})->whereNumber('project');
+
+Route::get('/dept-head/projects/{project}/report', function (Request $request, $project) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains('Department_Head')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    $department = $request->user()->department;
+
+    $project = \App\Models\Project::where('project_id', $project)
+        ->whereHas('student', fn($q) => $q->where('department', $department))
+        ->with([
+            'student:user_id,full_name',
+            'group.members.user:user_id,full_name',
+            'submissions',
+            'evaluations'   // <-- make sure this relationship exists
+        ])
+        ->firstOrFail();
+
+    // Format file URLs
+    $project->submissions->transform(function ($sub) {
+        $sub->file_url = $sub->file_path ? url('storage/' . $sub->file_path) : null;
+        return $sub;
+    });
+
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.project', compact('project'));
+    return $pdf->download("project-{$project->project_id}-report.pdf");
+})->whereNumber('project');
+
+Route::put('/dept-head/projects/{project}/archive', function (Request $request, $project) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains('Department_Head')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    $department = $request->user()->department;
+
+    $project = \App\Models\Project::where('project_id', $project)
+        ->whereHas('student', fn($q) => $q->where('department', $department))
+        ->firstOrFail();
+
+    $project->update(['is_archived' => true]);
+
+    ActivityLog::create([
+        'user_id'    => $request->user()->user_id,
+        'action'     => "Department Head archived project ID {$project->project_id}",
+        'ip_address' => $request->ip(),
+    ]);
+
+    return response()->json(['message' => 'Project archived successfully']);
+})->whereNumber('project');
+Route::put('/dept-head/projects/{project}/unarchive', function (Request $request, $project) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains('Department_Head')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    $department = $request->user()->department;
+
+    $project = \App\Models\Project::where('project_id', $project)
+        ->whereHas('student', fn($q) => $q->where('department', $department))
+        ->firstOrFail();
+
+    $project->update(['is_archived' => false]);
+
+    ActivityLog::create([
+        'user_id'    => $request->user()->user_id,
+        'action'     => "Department Head unarchived project ID {$project->project_id}",
+        'ip_address' => $request->ip(),
+    ]);
+
+    return response()->json(['message' => 'Project unarchived successfully']);
+})->whereNumber('project');
 
     Route::get('/dept-head/archive-projects', function (Request $request) {
         $roles = $request->user()->roles()->pluck('role_name');
@@ -1510,20 +1776,31 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json($projects);
     });
 
-    Route::get('/dept-head/evaluations', function (Request $request) {
-        $roles = $request->user()->roles()->pluck('role_name');
-        if (!$roles->contains('Department_Head')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-        $department = $request->user()->department;
-        $projectIds = \App\Models\Project::whereHas('student', fn($q) => $q->where('department', $department))
-            ->pluck('project_id');
-        return response()->json(
-            \App\Models\Evaluation::whereIn('project_id', $projectIds)
-                ->where('status', 'forwarded_to_dept_head')
-                ->with('project:project_id,title')
-                ->orderBy('created_at', 'desc')
-                ->get()
-        );
-    });
+  Route::get('/dept-head/evaluations', function (Request $request) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains('Department_Head')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    $department = $request->user()->department;
+    $projectIds = \App\Models\Project::whereHas('student', fn($q) => $q->where('department', $department))
+        ->pluck('project_id');
+
+    $evaluations = \App\Models\Evaluation::whereIn('project_id', $projectIds)
+        ->where('status', 'forwarded_to_dept_head')
+        ->get()
+        ->groupBy('student_id')
+        ->map(function ($evals, $studentId) {
+            $advisor = $evals->where('evaluator_type', 'advisor')->first();
+            $examiner = $evals->where('evaluator_type', 'examiner')->first();
+            $studentName = $studentId ? (\App\Models\User::find($studentId)->full_name ?? 'Unknown') : 'Unknown';
+            return [
+                'student_id'    => $studentId,
+                'student_name'  => $studentName,
+                'advisor_total' => $advisor ? $advisor->total_marks : null,
+                'examiner_total'=> $examiner ? $examiner->total_marks : null,
+            ];
+        })->values();
+
+    return response()->json($evaluations);
+});
 });

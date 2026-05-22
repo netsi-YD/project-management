@@ -209,7 +209,7 @@ const UploadProposal = () => {
           <button
             type="submit"
             disabled={loading || fetching || isBlocked}
-            className="w-full bg-blue-800 text-white py-2 px-4 rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#1f67a8] text-white py-2 px-4 rounded-lg hover:bg-[#185a8c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Uploading…" : "Upload Proposal"}
           </button>

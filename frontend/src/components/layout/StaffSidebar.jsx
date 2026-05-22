@@ -12,7 +12,7 @@ const StaffSidebar = ({ user }) => {
     { label: "Overview", path: "/staff" },
     { label: "Evaluate Projects", path: "/staff/evaluate" },
     { label: "Similarity Reports", path: "/staff/similarity" },
-    { label: "Feedback", path: "/staff/examiner-feedback" }, // new item
+    { label: "Feedback", path: "/staff/examiner-feedback" },
   ];
 
   const coordinatorMenu = [
@@ -21,7 +21,7 @@ const StaffSidebar = ({ user }) => {
     { label: "Assign Advisors", path: "/staff/assign-advisors" },
     { label: "Assign Examiners", path: "/staff/assign-examiners" },
     { label: "Manage Projects", path: "/staff/manage-projects" },
-    { label: "Evaluations", path: "/staff/coordinator-groups" }, // renamed label
+    { label: "Evaluations", path: "/staff/coordinator-groups" },
   ];
 
   const deptHeadMenu = [
@@ -40,12 +40,20 @@ const StaffSidebar = ({ user }) => {
     { label: "Activity Log", path: "/staff/activity-logs" },
   ];
 
+  // No roles assigned – fallback UI
   if (!user || !user.roles || user.roles.length === 0) {
     return (
       <aside className="w-64 bg-white border-r min-h-screen p-4 flex flex-col">
-        <h2 className="text-xl font-semibold text-[#1f67a8] mb-6">
-          UoG FYP Portal
-        </h2>
+        <div className="flex flex-col items-center mb-6">
+          <img
+            src="/uog-logo.png"
+            alt="University of Gondar"
+            className="h-16 w-auto mb-2"
+          />
+          <h2 className="text-sm font-semibold text-[#1f67a8] text-center leading-tight">
+            UoG Final Year Project Management Portal
+          </h2>
+        </div>
         <p className="text-gray-400">No roles assigned.</p>
         <div className="mt-auto border-t pt-4">
           <button
@@ -86,9 +94,17 @@ const StaffSidebar = ({ user }) => {
 
   return (
     <aside className="w-64 bg-white border-r min-h-screen p-4 flex flex-col">
-      <h2 className="text-xl font-semibold text-[#1f67a8] mb-6">
-        UoG FYP Portal
-      </h2>
+      {/* Logo + Portal Title */}
+      <div className="flex flex-col items-center mb-6">
+        <img
+          src="/image/logo.png"
+          alt="University of Gondar"
+          className="h-16 w-auto mb-2"
+        />
+        <h2 className="text-sm font-semibold text-[#1f67a8] text-center leading-tight">
+          UoG Final Year Project Management Portal
+        </h2>
+      </div>
 
       {user.roles.includes("Advisor") && renderSection("Advisor", advisorMenu)}
       {user.roles.includes("Examiner") &&
