@@ -45,7 +45,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a365d] to-[#2d3748] p-5">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-[#1a365d] to-[#2d3748] p-5">
       <div className="bg-white p-10 rounded-xl shadow-lg w-full max-w-sm sm:p-8">
         <div className="text-center mb-6">
           <div className="mb-4">
@@ -93,7 +93,7 @@ const Login = () => {
 
           <button
             type="submit"
-            className="w-full py-3.5 bg-gradient-to-br from-[#0c3c78] to-[#1a4d8c] text-white rounded-md text-base font-bold mb-6 transition-all duration-300 shadow-[0_4px_12px_rgba(12,60,120,0.25)] hover:from-[#0b366c] hover:to-[#16457f] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(12,60,120,0.35)] active:translate-y-0 active:shadow-[0_2px_8px_rgba(12,60,120,0.25)]"
+            className="w-full py-3.5 bg-linear-to-br from-[#0c3c78] to-[#1a4d8c] text-white rounded-md text-base font-bold mb-6 transition-all duration-300 shadow-[0_4px_12px_rgba(12,60,120,0.25)] hover:from-[#0b366c] hover:to-[#16457f] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(12,60,120,0.35)] active:translate-y-0 active:shadow-[0_2px_8px_rgba(12,60,120,0.25)]"
           >
             Log in
           </button>
