@@ -135,7 +135,7 @@ const Sidebar = () => {
     <aside className="w-56 bg-white border-r border-gray-200 flex flex-col">
       {/* Logo */}
       <div className="h-16 flex items-center justify-center border-b border-gray-200 shrink-0">
-        <h1 className="text-base font-bold text-blue-800">UoG FYP Portal</h1>
+        <h1 className="text-base font-bold text-[#1f67a8]">UoG FYP Portal</h1>
       </div>
 
       {/* Nav */}
@@ -150,8 +150,8 @@ const Sidebar = () => {
                 className={({ isActive }) =>
                   `flex items-center px-4 py-2.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? "bg-blue-50 text-blue-800 border-r-4 border-blue-800"
-                      : "text-gray-600 hover:bg-blue-50 hover:text-blue-800"
+                      ? "bg-blue-50 text-[#1f67a8] border-r-4 border-[#1f67a8]"
+                      : "text-gray-700 hover:bg-blue-50 hover:text-[#1f67a8]"
                   }`
                 }
               >
@@ -174,8 +174,8 @@ const Sidebar = () => {
                 onClick={() => toggle(group.label)}
                 className={`w-full flex items-center px-4 py-2.5 text-sm font-medium transition-colors ${
                   isGroupActive
-                    ? "text-blue-800"
-                    : "text-gray-600 hover:text-blue-800"
+                    ? "text-[#1f67a8]"
+                    : "text-gray-700 hover:text-[#1f67a8]"
                 } hover:bg-blue-50`}
               >
                 <group.icon className="w-4 h-4 mr-2.5 shrink-0" />
@@ -197,8 +197,8 @@ const Sidebar = () => {
                       className={({ isActive }) =>
                         `flex items-center pl-4 pr-3 py-2 text-sm transition-colors ${
                           isActive
-                            ? "bg-blue-50 text-blue-800 border-r-4 border-blue-800 font-medium"
-                            : "text-gray-500 hover:bg-blue-50 hover:text-blue-800"
+                            ? "bg-blue-50 text-[#1f67a8] border-r-4 border-[#1f67a8] font-medium"
+                            : "text-gray-500 hover:bg-blue-50 hover:text-[#1f67a8]"
                         }`
                       }
                     >
@@ -217,7 +217,7 @@ const Sidebar = () => {
       <div className="shrink-0 border-t border-gray-200 p-3">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 rounded transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import api from "../../api/axios";
 
 const DeptHeadArchive = () => {
@@ -8,41 +9,50 @@ const DeptHeadArchive = () => {
   useEffect(() => {
     api
       .get("/dept-head/archive-projects")
-      .then((res) => setProjects(res.data || []))
+      .then((res) => setProjects(res.data))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="text-gray-500">Loading…</p>;
+  if (loading) return <p className="p-4">Loading…</p>;
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold text-[#1f67a8] mb-4">
-        Archived Projects (Department)
+    <div className="p-6">
+      <h2 className="text-2xl font-bold text-[#1f67a8] mb-6">
+        Archived Projects
       </h2>
       {projects.length === 0 ? (
-        <p className="text-gray-500">
-          No archived projects in your department.
-        </p>
+        <p>No archived projects.</p>
       ) : (
-        <table className="w-full text-sm bg-white rounded border shadow-sm">
-          <thead className="border-b text-left">
-            <tr>
-              <th className="py-2 px-4">Title</th>
-              <th className="py-2 px-4">Student</th>
-              <th className="py-2 px-4">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {projects.map((p) => (
-              <tr key={p.project_id} className="border-b">
-                <td className="py-2 px-4">{p.title}</td>
-                <td className="py-2 px-4">{p.student?.full_name}</td>
-                <td className="py-2 px-4 capitalize">{p.status}</td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full border text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="border p-2">Title</th>
+                <th className="border p-2">Student</th>
+                <th className="border p-2">Archived</th>
+                <th className="border p-2">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {projects.map((p) => (
+                <tr key={p.project_id} className="hover:bg-gray-50">
+                  <td className="border p-2">{p.title}</td>
+                  <td className="border p-2">{p.student?.full_name}</td>
+                  <td className="border p-2">Yes</td>
+                  <td className="border p-2">
+                    <Link
+                      to={`/staff/dept/projects/${p.project_id}`}
+                      className="text-blue-600 hover:underline text-xs"
+                    >
+                      View Details
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

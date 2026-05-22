@@ -34,12 +34,10 @@ const StaffSidebar = ({ user }) => {
   const superAdminMenu = [
     { label: "Overview", path: "/staff/admin-dashboard" },
     { label: "Manage Users", path: "/staff/manage-users" },
-    { label: "Approve Accounts", path: "/staff/approve-accounts" },
     { label: "Import Users", path: "/staff/import-users" },
     { label: "Schedule Programs", path: "/staff/schedules" },
-    { label: "Project Status", path: "/staff/project-status-admin" },
-    { label: "Archive Projects", path: "/staff/archive-projects" },
     { label: "Backup Data", path: "/staff/backup" },
+    { label: "Activity Log", path: "/staff/activity-logs" },
   ];
 
   if (!user || !user.roles || user.roles.length === 0) {

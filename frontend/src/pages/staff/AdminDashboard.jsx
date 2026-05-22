@@ -7,18 +7,18 @@ const AdminDashboard = () => {
     total_projects: 0,
     total_submissions: 0,
   });
-  const [logs, setLogs] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [overviewRes, logsRes] = await Promise.all([
+        const [overviewRes, notiRes] = await Promise.all([
           api.get("/admin/overview"),
-          api.get("/admin/activity-logs"),
+          api.get("/admin/notifications"),
         ]);
         setOverview(overviewRes.data);
-        setLogs(logsRes.data?.data || logsRes.data || []);
+        setNotifications(notiRes.data?.data || notiRes.data || []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -64,30 +64,42 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Login History */}
+      {/* Notifications Feed */}
+      {/* Notifications Feed */}
       <div className="bg-white rounded-lg border p-6 shadow-sm">
-        <h3 className="font-semibold text-[#1f67a8] mb-4">Login History</h3>
-        {logs.length === 0 ? (
-          <p className="text-gray-500">No login history recorded.</p>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-[#1f67a8]">
+            Recent Notifications
+            {notifications.some((n) => !n.is_read) && (
+              <span className="ml-2 bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">
+                {notifications.filter((n) => !n.is_read).length} unread
+              </span>
+            )}
+          </h3>
+          <button className="text-sm text-blue-600 hover:underline">
+            View All
+          </button>
+        </div>
+
+        {notifications.length === 0 ? (
+          <p className="text-gray-500">No notifications.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b text-left">
-              <tr>
-                <th className="py-2">User</th>
-                <th className="py-2">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.slice(0, 10).map((log, idx) => (
-                <tr key={idx} className="border-b">
-                  <td className="py-2">{log.user?.full_name || "System"}</td>
-                  <td className="py-2">
-                    {new Date(log.created_at).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="space-y-3">
+            {notifications.slice(0, 10).map((n) => (
+              <div
+                key={n.id}
+                className={`p-3 rounded border ${
+                  n.is_read ? "bg-gray-50" : "bg-blue-50 border-blue-200"
+                }`}
+              >
+                <p className="text-sm">{n.message_content}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {n.user?.full_name || "System"} ·{" "}
+                  {new Date(n.sent_at).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

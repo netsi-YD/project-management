@@ -3,136 +3,109 @@ import api from "../../api/axios";
 
 const ManageUsers = () => {
   const [users, setUsers] = useState([]);
-  const [rolesList, setRolesList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [usersRes, rolesRes] = await Promise.all([
-          api.get("/admin/users"),
-          api.get("/roles"),
-        ]);
-        setUsers(usersRes.data || []);
-        setRolesList(rolesRes.data || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  const handleRoleChange = async (userId, roleId) => {
+  const fetchUsers = async () => {
     try {
-      await api.put(`/admin/users/${userId}/role`, { roles: [roleId] });
       const res = await api.get("/admin/users");
       setUsers(res.data || []);
+    } catch (err) {
+      console.error("Failed to load users", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleRoleChange = async (userId, newRole) => {
+    if (!newRole) return;
+    try {
+      await api.put(`/admin/users/${userId}/role`, { roles: [newRole] });
+      setMessage("Role updated successfully.");
+      fetchUsers();
     } catch (err) {
       alert("Failed to update role");
     }
   };
 
-  const handleDeactivate = async (userId) => {
-    if (!window.confirm("Deactivate this user?")) return;
+  const handleToggleStatus = async (userId, currentStatus) => {
+    const action = currentStatus === "active" ? "deactivate" : "activate";
     try {
-      await api.put(`/admin/users/${userId}/deactivate`);
+      await api.put(`/admin/users/${userId}/${action}`);
+      setMessage(`User ${action}d.`);
       fetchUsers();
     } catch (err) {
-      alert("Failed to deactivate user");
+      alert("Failed to change status");
     }
   };
 
-  const handleActivate = async (userId) => {
-    try {
-      await api.put(`/admin/users/${userId}/activate`);
-      fetchUsers();
-    } catch (err) {
-      alert("Failed to activate user");
-    }
-  };
-
-  if (loading) return <p className="text-gray-500">Loading…</p>;
+  if (loading) return <p className="p-4">Loading…</p>;
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold text-[#1f67a8] mb-4">
-        Manage Users
-      </h2>
-      <div className="bg-white rounded-lg border p-6 shadow-sm">
-        {users.length === 0 ? (
-          <p className="text-gray-500">No users found.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b text-left">
-              <tr>
-                <th className="py-2">Name</th>
-                <th className="py-2">Email</th>
-                <th className="py-2">Current Role</th>
-                <th className="py-2">Change Role</th>
-                <th className="py-2">Action</th>
+    <div className="p-6">
+      <h2 className="text-2xl font-bold text-[#1f67a8] mb-6">Manage Users</h2>
+      {message && (
+        <p className="mb-4 text-green-700 bg-green-50 p-2 rounded">{message}</p>
+      )}
+      <div className="overflow-x-auto">
+        <table className="min-w-full border text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="border p-2">Name</th>
+              <th className="border p-2">Email</th>
+              <th className="border p-2">Department</th>
+              <th className="border p-2">Current Role</th>
+              <th className="border p-2">Change Role</th>
+              <th className="border p-2">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.user_id} className="hover:bg-gray-50">
+                <td className="border p-2 font-medium">{u.full_name}</td>
+                <td className="border p-2">{u.email}</td>
+                <td className="border p-2">{u.department || "—"}</td>
+                <td className="border p-2">{u.roles?.join(", ")}</td>
+                <td className="border p-2">
+                  <select
+                    defaultValue=""
+                    onChange={(e) =>
+                      handleRoleChange(u.user_id, e.target.value)
+                    }
+                    className="border rounded p-1 text-xs"
+                  >
+                    <option value="" disabled>
+                      Select role
+                    </option>
+                    {/* You can list all available roles */}
+                    <option value="1">Student</option>
+                    <option value="2">Advisor</option>
+                    <option value="3">Examiner</option>
+                    <option value="4">Project_Coordinator</option>
+                    <option value="5">Department_Head</option>
+                    <option value="6">Super_Admin</option>
+                  </select>
+                </td>
+                <td className="border p-2 text-center">
+                  <button
+                    onClick={() => handleToggleStatus(u.user_id, u.status)}
+                    className={`px-3 py-1 rounded text-xs text-white ${
+                      u.status === "active"
+                        ? "bg-red-500 hover:bg-red-600"
+                        : "bg-green-500 hover:bg-green-600"
+                    }`}
+                  >
+                    {u.status === "active" ? "Deactivate" : "Activate"}
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.user_id} className="border-b">
-                  <td className="py-2">{u.full_name}</td>
-                  <td className="py-2">{u.email}</td>
-
-                  <td className="py-2">{(u.roles || []).join(", ")}</td>
-                  <td className="py-2">
-                    <select
-                      defaultValue=""
-                      onChange={(e) =>
-                        e.target.value &&
-                        handleRoleChange(u.user_id, e.target.value)
-                      }
-                      className="border rounded px-2 py-1"
-                    >
-                      <option value="" disabled>
-                        Select role
-                      </option>
-                      {rolesList.map((r) => (
-                        <option key={r.role_id} value={r.role_id}>
-                          {r.role_name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="py-2">
-                    <span
-                      className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                        u.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {u.status || "active"}
-                    </span>
-                  </td>
-                  <td className="py-2">
-                    {u.status === "active" ? (
-                      <button
-                        onClick={() => handleDeactivate(u.user_id)}
-                        className="text-red-600 hover:underline"
-                      >
-                        Deactivate
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleActivate(u.user_id)}
-                        className="text-[#1f67a8] hover:underline"
-                      >
-                        Activate
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

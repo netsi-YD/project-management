@@ -52,6 +52,8 @@ import CoordinatorProjectEvaluations from "./pages/staff/CoordinatorProjectEvalu
 import ExaminerProjectDetail from "./pages/staff/ExaminerProjectDetail";
 import ExaminerFeedback from "./pages/staff/ExaminerFeedback";
 import ViewFeedback from "./pages/student/ViewFeedback";
+import DeptHeadProjectDetail from "./pages/staff/DeptHeadProjectDetail";
+import ActivityLogs from "./pages/staff/ActivityLogs";
 const router = createBrowserRouter([
   { path: "/", element: <PublicGuestHome /> },
   { path: "/login", element: <Login /> },
@@ -113,11 +115,15 @@ const router = createBrowserRouter([
       { path: "project-report/:projectId", element: <ProjectReport /> },
       { path: "advisor-groups", element: <AdvisorGroups /> },
       { path: "examiner-feedback", element: <ExaminerFeedback /> },
-
+      { path: "dept/projects/:projectId", element: <DeptHeadProjectDetail /> },
+      { path: "dept-projects", element: <DeptHeadProjects /> }, // ensure it's correct
+      { path: "dept-archive", element: <DeptHeadArchive /> },
       {
         path: "advisor/projects/:projectId",
         element: <AdvisorProjectDetail />,
       },
+      { path: "activity-logs", element: <ActivityLogs /> },
+
       {
         path: "coordinator/project-evaluations/:projectId",
         element: <CoordinatorProjectEvaluations />,
