@@ -7,6 +7,18 @@ use Illuminate\Database\Eloquent\Model;
 
 class Project extends Model
 {
+    public function student()
+{
+    return $this->belongsTo(User::class, 'student_id', 'user_id');
+}
+public function group()
+{
+    return $this->hasOne(\App\Models\ProjectGroup::class, 'project_id');
+}
+public function submissions()
+{
+    return $this->hasMany(Submission::class, 'project_id');
+}
     use HasFactory;
     protected $table = 'project';
     protected $primaryKey = 'project_id'; 
@@ -23,5 +35,12 @@ class Project extends Model
     'similarity_score',
     'deadline',
     'is_delay_notified',
+    'advisor_request_status',
+    'preferred_advisor_names',
+    'is_archived',
 ];
+public function evaluations()
+{
+    return $this->hasMany(\App\Models\Evaluation::class, 'project_id');
+}
 }

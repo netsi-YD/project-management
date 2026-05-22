@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
-import StatCard from "../../components/ui/StatCard";
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
@@ -12,7 +12,7 @@ const Dashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      navigate("/login"); // redirect if not logged in
+      navigate("/login");
       return;
     }
 
@@ -28,7 +28,6 @@ const Dashboard = () => {
         setNotifications(notifRes.data || []);
       } catch (error) {
         console.error("Dashboard fetch error:", error);
-        // If token is invalid, redirect to login
         if (error.response?.status === 401) {
           localStorage.removeItem("token");
           navigate("/login");
@@ -51,7 +50,6 @@ const Dashboard = () => {
     );
   }
 
-  // Compute summary stats
   const totalProjects = projects.length;
   const submittedProjects = projects.filter(
     (p) => p.status !== "pending",
@@ -60,17 +58,7 @@ const Dashboard = () => {
   const hasAdvisor = projects.some(
     (p) => p.advisor_id && ![null, 0, "null"].includes(p.advisor_id),
   );
-
-  // Advisor status
   const advisorStatus = hasAdvisor ? "Assigned" : "Not Assigned";
-  const advisorColor = hasAdvisor ? "green" : "yellow";
-
-  // Current phase: if any project is 'approved', say 'Final Report', else 'Title Review'
-  const currentPhase = projects.some((p) => p.status === "approved")
-    ? "Final Report"
-    : "Title Review";
-
-  // Unread notifications count
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
@@ -83,36 +71,59 @@ const Dashboard = () => {
         <p className="text-gray-500">Here’s your project overview</p>
       </div>
 
-      {/* Stat cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          title="Project Status"
-          value={`${totalProjects} Active`}
-          subtext={
-            delayedProjects > 0 ? `${delayedProjects} delayed` : "On track"
-          }
-          color={delayedProjects > 0 ? "red" : "blue"}
-        />
-        <StatCard
-          title="Title Submitted"
-          value={submittedProjects}
-          subtext={`out of ${totalProjects} projects`}
-          color="blue"
-        />
-        <StatCard title="Advisor" value={advisorStatus} color={advisorColor} />
-        <StatCard
-          title="Current Phase"
-          value={currentPhase}
-          subtext={totalProjects > 0 ? "Project in progress" : "No project yet"}
-          color="blue"
-        />
-        <StatCard
-          title="Notifications"
-          value={unreadCount}
-          subtext="unread"
-          color={unreadCount > 0 ? "yellow" : "blue"}
-        />
+      {/* Stat cards – staff style */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg border p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase">
+            Total Projects
+          </h3>
+          <p className="text-3xl font-bold text-[#1f67a8] mt-2">
+            {totalProjects}
+          </p>
+        </div>
+
+        <div className="bg-white rounded-lg border p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase">
+            Submitted
+          </h3>
+          <p className="text-3xl font-bold text-[#1f67a8] mt-2">
+            {submittedProjects}
+          </p>
+          {totalProjects > 0 && (
+            <p className="text-xs text-gray-400 mt-1">
+              out of {totalProjects} projects
+            </p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-lg border p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase">
+            Advisor
+          </h3>
+          <p className="text-3xl font-bold text-[#1f67a8] mt-2">
+            {advisorStatus}
+          </p>
+        </div>
+
+        <div className="bg-white rounded-lg border p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase">
+            Notifications
+          </h3>
+          <p className="text-3xl font-bold text-[#1f67a8] mt-2">
+            {unreadCount}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">unread</p>
+        </div>
       </div>
+
+      {/* Delayed projects warning (if any) */}
+      {delayedProjects > 0 && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-lg mb-8">
+          <p className="text-red-700 text-sm font-medium">
+            {delayedProjects} project{delayedProjects > 1 ? "s" : ""} delayed
+          </p>
+        </div>
+      )}
 
       {/* Projects list preview */}
       {projects.length > 0 && (

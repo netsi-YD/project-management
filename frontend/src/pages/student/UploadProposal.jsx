@@ -3,27 +3,69 @@ import api from "../../api/axios";
 
 const UploadProposal = () => {
   const [projects, setProjects] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
   const [projectId, setProjectId] = useState("");
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [fetchingProjects, setFetchingProjects] = useState(true);
+  const [fetching, setFetching] = useState(true);
 
-  // Fetch the student’s projects for the dropdown
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchAll = async () => {
       try {
-        const res = await api.get("/projects");
-        setProjects(res.data.projects || []);
+        // Own projects
+        const ownRes = await api.get("/projects");
+        const ownProjects = ownRes.data.projects || [];
+
+        // Group-linked projects (for teammates)
+        const groupRes = await api.get("/groups");
+        const groups = groupRes.data || [];
+        const groupProjectIds = groups
+          .filter((g) => g.project_id)
+          .map((g) => g.project_id);
+
+        // Merge: own projects + any group project not already in own list
+        const ownIds = ownProjects.map((p) => p.project_id);
+        const extraProjects = [];
+
+        for (const gp of groups) {
+          if (gp.project_id && !ownIds.includes(gp.project_id)) {
+            // Build a minimal project object from group data
+            extraProjects.push({
+              project_id: gp.project_id,
+              title: gp.project_title || `Project #${gp.project_id}`,
+              status: null, // will show without status badge
+            });
+          }
+        }
+
+        const allProjects = [...ownProjects, ...extraProjects];
+        setProjects(allProjects);
+
+        // Existing submissions for the current user
+        const subRes = await api.get("/submissions");
+        setSubmissions(subRes.data || []);
       } catch (err) {
-        console.error("Failed to load projects:", err);
-        setMessage("Could not load your projects. Please try again.");
+        console.error("Failed to load data:", err);
+        setMessage("❌ Could not load your projects. Please try again.");
       } finally {
-        setFetchingProjects(false);
+        setFetching(false);
       }
     };
-    fetchProjects();
+    fetchAll();
   }, []);
+
+  // Check if a proposal already exists for the selected project
+  const existingProposal = submissions.find(
+    (s) => s.project_id === parseInt(projectId) && s.type === "proposal",
+  );
+
+  const selectedProject = projects.find(
+    (p) => p.project_id === parseInt(projectId),
+  );
+
+  // Block upload if proposal exists and project is not in revision
+  const isBlocked = existingProposal && selectedProject?.status !== "revision";
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -32,9 +74,16 @@ const UploadProposal = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!projectId || !file) {
-      setMessage("Please select a project and a file.");
+      setMessage("❌ Please select a project and a file.");
       return;
     }
+    if (isBlocked) {
+      setMessage(
+        "❌ A proposal has already been submitted. Re-upload is only allowed when revision is requested.",
+      );
+      return;
+    }
+
     setLoading(true);
     setMessage("");
 
@@ -50,18 +99,19 @@ const UploadProposal = () => {
       setMessage("✅ Proposal uploaded successfully!");
       setFile(null);
       setProjectId("");
-      // Reset the file input visually
       document.getElementById("file-upload").value = "";
+
+      // Refresh submissions list
+      const subRes = await api.get("/submissions");
+      setSubmissions(subRes.data || []);
     } catch (err) {
       console.error("Upload error:", err);
-      if (err.response?.data?.errors) {
-        const errMsgs = Object.values(err.response.data.errors)
+      const backendMsg =
+        err.response?.data?.message ||
+        Object.values(err.response?.data?.errors || {})
           .flat()
           .join(", ");
-        setMessage(`❌ ${errMsgs}`);
-      } else {
-        setMessage("❌ Upload failed. Please try again.");
-      }
+      setMessage(`❌ ${backendMsg || "Upload failed. Please try again."}`);
     } finally {
       setLoading(false);
     }
@@ -77,8 +127,12 @@ const UploadProposal = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Project
             </label>
-            {fetchingProjects ? (
+            {fetching ? (
               <p className="text-gray-500 text-sm">Loading your projects…</p>
+            ) : projects.length === 0 ? (
+              <p className="text-sm text-gray-500 border border-gray-200 rounded-lg px-4 py-2 bg-gray-50">
+                No projects found. Create a project first.
+              </p>
             ) : (
               <select
                 value={projectId}
@@ -90,11 +144,36 @@ const UploadProposal = () => {
                 {projects.map((p) => (
                   <option key={p.project_id} value={p.project_id}>
                     {p.title}
+                    {p.status ? ` (${p.status})` : ""}
                   </option>
                 ))}
               </select>
             )}
           </div>
+
+          {/* Existing submission status */}
+          {projectId && existingProposal && (
+            <div
+              className={`text-sm p-3 rounded-lg border ${
+                selectedProject?.status === "revision"
+                  ? "bg-yellow-50 border-yellow-300 text-yellow-800"
+                  : "bg-blue-50 border-blue-200 text-blue-800"
+              }`}
+            >
+              {selectedProject?.status === "revision" ? (
+                <>
+                  ⚠️ <strong>Revision requested.</strong> You can re-upload a
+                  new proposal — the previous one will be replaced.
+                </>
+              ) : (
+                <>
+                  ✅ <strong>Proposal already submitted.</strong> Re-upload is
+                  only available when revision is requested by your advisor or
+                  coordinator.
+                </>
+              )}
+            </div>
+          )}
 
           {/* File input */}
           <div>
@@ -105,8 +184,8 @@ const UploadProposal = () => {
               id="file-upload"
               type="file"
               onChange={handleFileChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              required
+              disabled={isBlocked}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 mt-1">
               Accepted: PDF, DOC, DOCX, ZIP (Max 10MB)
@@ -129,8 +208,8 @@ const UploadProposal = () => {
           {/* Submit button */}
           <button
             type="submit"
-            disabled={loading || fetchingProjects}
-            className="w-full bg-blue-800 text-white py-2 px-4 rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
+            disabled={loading || fetching || isBlocked}
+            className="w-full bg-[#1f67a8] text-white py-2 px-4 rounded-lg hover:bg-[#185a8c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Uploading…" : "Upload Proposal"}
           </button>
