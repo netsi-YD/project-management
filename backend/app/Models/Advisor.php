@@ -19,5 +19,9 @@ class Advisor extends Model
         'department_id',
         'current_advise_count',
         'project_group_id',
+        'user_id',
     ];
+    public function user() {
+    return $this->belongsTo(User::class, 'user_id', 'user_id');
+}
 }

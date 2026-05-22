@@ -62,7 +62,7 @@ const SimilarityCheck = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-800 text-white py-2 px-4 rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
+            className="w-full bg-[#1f67a8] text-white py-2 px-4 rounded-lg hover:bg-[#185a8c] transition-colors disabled:opacity-50"
           >
             {loading ? "Checking…" : "Check Similarity"}
           </button>

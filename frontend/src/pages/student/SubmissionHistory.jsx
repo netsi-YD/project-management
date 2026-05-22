@@ -90,7 +90,7 @@ const SubmissionHistory = () => {
                 </div>
                 <button
                   onClick={() => toggleProject(sub.project_id)}
-                  className="text-sm text-blue-800 hover:underline"
+                  className="text-sm text-[#1f67a8] hover:underline"
                 >
                   {activeProject === sub.project_id
                     ? "Hide Feedback"
@@ -98,7 +98,6 @@ const SubmissionHistory = () => {
                 </button>
               </div>
 
-              {/* Feedback / Comments section */}
               {activeProject === sub.project_id && (
                 <div className="mt-4 border-t pt-4">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">
