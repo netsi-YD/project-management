@@ -15,6 +15,8 @@ The platform is designed to improve communication, supervision, project tracking
 8. User authentication and role-based access control
 9. Notification and status update system
 10. Centralized database for project records
+
+    
 **Technologies Used**
 **Backend**
 Laravel
