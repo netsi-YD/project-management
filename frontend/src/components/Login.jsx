@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 
 const Login = () => {
@@ -48,13 +48,13 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-[#1a365d] to-[#2d3748] p-5">
       <div className="bg-white p-10 rounded-xl shadow-lg w-full max-w-sm sm:p-8">
         <div className="text-center mb-6">
-          <div className="mb-4">
+          <Link to="/" className="inline-block mb-4 hover:opacity-80">
             <img
               src="/image/logo.png"
               alt="University of Gondar Logo"
               className="w-36 h-auto max-h-32 object-contain mx-auto"
             />
-          </div>
+          </Link>
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-[#1a365d] mb-1">
               University of Gondar
