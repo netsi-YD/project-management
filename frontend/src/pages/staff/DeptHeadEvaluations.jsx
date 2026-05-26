@@ -27,9 +27,22 @@ const DeptHeadEvaluations = () => {
     return (a + e).toFixed(1);
   };
 
-  const handleSubmitToSIS = (studentId) => {
-    // Placeholder – replace with actual API call if available
-    alert(`Submit to SIS for student ID ${studentId} – feature coming soon.`);
+  const handleDownloadExcel = async () => {
+    try {
+      const res = await api.get("/dept-head/evaluations/export", {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "evaluations.csv");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Failed to download file.");
+    }
   };
 
   if (loading) return <div className="p-4">Loading…</div>;
@@ -37,9 +50,17 @@ const DeptHeadEvaluations = () => {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold text-[#1f67a8] mb-6">
-        Forwarded Evaluations
-      </h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-[#1f67a8]">
+          Forwarded Evaluations
+        </h2>
+        <button
+          onClick={handleDownloadExcel}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+        >
+          Download Excel
+        </button>
+      </div>
       {students.length === 0 ? (
         <p className="text-gray-500">No evaluations in your department yet.</p>
       ) : (
@@ -51,7 +72,6 @@ const DeptHeadEvaluations = () => {
                 <th className="border p-2">Advisor (30%)</th>
                 <th className="border p-2">Examiner (70%)</th>
                 <th className="border p-2">Total (100%)</th>
-                <th className="border p-2">Submit to SIS</th>
               </tr>
             </thead>
             <tbody>
@@ -68,14 +88,6 @@ const DeptHeadEvaluations = () => {
                     {s.advisor_total != null && s.examiner_total != null
                       ? `${computeTotal(s.advisor_total, s.examiner_total)}/100`
                       : "—"}
-                  </td>
-                  <td className="border p-2 text-center">
-                    <button
-                      onClick={() => handleSubmitToSIS(s.student_id)}
-                      className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700"
-                    >
-                      Submit to SIS
-                    </button>
                   </td>
                 </tr>
               ))}

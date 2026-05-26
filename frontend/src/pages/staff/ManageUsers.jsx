@@ -1,10 +1,21 @@
 import { useState, useEffect } from "react";
 import api from "../../api/axios";
 
+const STAFF_ROLES = [
+  "Advisor",
+  "Examiner",
+  "Project_Coordinator",
+  "Department_Head",
+  "Super_Admin",
+];
+const ALL_ROLES = ["Student", ...STAFF_ROLES];
+
 const ManageUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [openRoleEditor, setOpenRoleEditor] = useState(null);
+  const [selectedRoles, setSelectedRoles] = useState([]);
 
   const fetchUsers = async () => {
     try {
@@ -21,14 +32,52 @@ const ManageUsers = () => {
     fetchUsers();
   }, []);
 
-  const handleRoleChange = async (userId, newRole) => {
-    if (!newRole) return;
+  const startEditRoles = (user) => {
+    setOpenRoleEditor(user.user_id);
+    setSelectedRoles([...user.roles]);
+  };
+
+  const cancelEditRoles = () => {
+    setOpenRoleEditor(null);
+    setSelectedRoles([]);
+  };
+
+  const toggleRole = (role) => {
+    setSelectedRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
+    );
+  };
+
+  const isStaffUser = (userRoles) => {
+    return userRoles.some((r) => STAFF_ROLES.includes(r));
+  };
+
+  const saveRoles = async (userId) => {
+    if (selectedRoles.length === 0) {
+      setMessage("Please select at least one role.");
+      return;
+    }
     try {
-      await api.put(`/admin/users/${userId}/role`, { roles: [newRole] });
-      setMessage("Role updated successfully.");
+      // Map role names to role IDs – we'll send names and let the backend resolve them,
+      // or we can keep the existing backend that accepts role IDs.
+      // Since the current backend route uses integer role IDs, we need to map names to IDs.
+      // But the current dropdown already used hardcoded IDs. We'll keep the same hardcoded mapping.
+      const roleMap = {
+        Student: 1,
+        Advisor: 2,
+        Examiner: 3,
+        Project_Coordinator: 4,
+        Department_Head: 5,
+        Super_Admin: 6,
+      };
+      const roleIds = selectedRoles.map((r) => roleMap[r]).filter(Boolean);
+
+      await api.put(`/admin/users/${userId}/role`, { roles: roleIds });
+      setMessage("Roles updated successfully.");
+      setOpenRoleEditor(null);
       fetchUsers();
     } catch (err) {
-      alert("Failed to update role");
+      alert("Failed to update roles");
     }
   };
 
@@ -58,52 +107,81 @@ const ManageUsers = () => {
               <th className="border p-2">Name</th>
               <th className="border p-2">Email</th>
               <th className="border p-2">Department</th>
-              <th className="border p-2">Current Role</th>
-              <th className="border p-2">Change Role</th>
+              <th className="border p-2">Current Roles</th>
+              <th className="border p-2">Change Roles</th>
               <th className="border p-2">Action</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr key={u.user_id} className="hover:bg-gray-50">
-                <td className="border p-2 font-medium">{u.full_name}</td>
-                <td className="border p-2">{u.email}</td>
-                <td className="border p-2">{u.department || "—"}</td>
-                <td className="border p-2">{u.roles?.join(", ")}</td>
-                <td className="border p-2">
-                  <select
-                    defaultValue=""
-                    onChange={(e) =>
-                      handleRoleChange(u.user_id, e.target.value)
-                    }
-                    className="border rounded p-1 text-xs"
-                  >
-                    <option value="" disabled>
-                      Select role
-                    </option>
-                    {/* You can list all available roles */}
-                    <option value="1">Student</option>
-                    <option value="2">Advisor</option>
-                    <option value="3">Examiner</option>
-                    <option value="4">Project_Coordinator</option>
-                    <option value="5">Department_Head</option>
-                    <option value="6">Super_Admin</option>
-                  </select>
-                </td>
-                <td className="border p-2 text-center">
-                  <button
-                    onClick={() => handleToggleStatus(u.user_id, u.status)}
-                    className={`px-3 py-1 rounded text-xs text-white ${
-                      u.status === "active"
-                        ? "bg-red-500 hover:bg-red-600"
-                        : "bg-green-500 hover:bg-green-600"
-                    }`}
-                  >
-                    {u.status === "active" ? "Deactivate" : "Activate"}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {users.map((u) => {
+              const staff = isStaffUser(u.roles || []);
+              const editing = openRoleEditor === u.user_id;
+              const availableRoles = staff
+                ? ALL_ROLES.filter((r) => r !== "Student")
+                : ALL_ROLES;
+
+              return (
+                <tr key={u.user_id} className="hover:bg-gray-50">
+                  <td className="border p-2 font-medium">{u.full_name}</td>
+                  <td className="border p-2">{u.email}</td>
+                  <td className="border p-2">{u.department || "—"}</td>
+                  <td className="border p-2">{(u.roles || []).join(", ")}</td>
+                  <td className="border p-2">
+                    {editing ? (
+                      <div className="space-y-1">
+                        {availableRoles.map((role) => (
+                          <label
+                            key={role}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedRoles.includes(role)}
+                              onChange={() => toggleRole(role)}
+                              className="rounded"
+                            />
+                            {role}
+                          </label>
+                        ))}
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => saveRoles(u.user_id)}
+                            className="bg-green-600 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={cancelEditRoles}
+                            className="bg-gray-400 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startEditRoles(u)}
+                        className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs hover:bg-blue-200"
+                      >
+                        Change Roles
+                      </button>
+                    )}
+                  </td>
+                  <td className="border p-2 text-center">
+                    <button
+                      onClick={() => handleToggleStatus(u.user_id, u.status)}
+                      className={`px-3 py-1 rounded text-xs text-white ${
+                        u.status === "active"
+                          ? "bg-red-500 hover:bg-red-600"
+                          : "bg-green-500 hover:bg-green-600"
+                      }`}
+                    >
+                      {u.status === "active" ? "Deactivate" : "Activate"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

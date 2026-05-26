@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../../api/axios";
 
 const Dashboard = () => {
@@ -25,7 +25,9 @@ const Dashboard = () => {
         ]);
         setProfile(profileRes.data);
         setProjects(projectsRes.data.projects || []);
-        setNotifications(notifRes.data || []);
+        // Ensure notifications is always an array
+        const notifData = notifRes.data?.data || notifRes.data || [];
+        setNotifications(Array.isArray(notifData) ? notifData : []);
       } catch (error) {
         console.error("Dashboard fetch error:", error);
         if (error.response?.status === 401) {
@@ -143,11 +145,19 @@ const Dashboard = () => {
                     Status: {project.status}
                   </p>
                 </div>
-                {project.is_delayed && (
-                  <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
-                    Delayed
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  <Link
+                    to={`/student/collaboration?project_id=${project.project_id}`}
+                    className="text-blue-600 hover:underline text-sm"
+                  >
+                    Feedback
+                  </Link>
+                  {project.is_delayed && (
+                    <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                      Delayed
+                    </span>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -155,7 +165,7 @@ const Dashboard = () => {
       )}
 
       {/* Notifications preview */}
-      {notifications.length > 0 && (
+      {notifications.length > 0 ? (
         <div className="bg-white rounded-lg border p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
             Recent Notifications
@@ -182,6 +192,13 @@ const Dashboard = () => {
               +{notifications.length - 5} more notifications
             </p>
           )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg border p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Notifications
+          </h3>
+          <p className="text-gray-500">No notifications yet.</p>
         </div>
       )}
     </div>

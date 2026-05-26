@@ -37,10 +37,16 @@ public function submissions()
     'is_delay_notified',
     'advisor_request_status',
     'preferred_advisor_names',
+    'preferred_titles',
+    'preferred_advisors',
     'is_archived',
 ];
 public function evaluations()
 {
     return $this->hasMany(\App\Models\Evaluation::class, 'project_id');
+}
+public function advisor()
+{
+    return $this->belongsTo(\App\Models\Advisor::class, 'advisor_id', 'advisor_id');
 }
 }

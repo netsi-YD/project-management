@@ -2,19 +2,35 @@ import { useState, useEffect } from "react";
 import api from "../../api/axios";
 
 const DeptHeadDashboard = () => {
-  const [projects, setProjects] = useState([]);
-  const [evaluations, setEvaluations] = useState([]);
+  const [overview, setOverview] = useState({
+    total_projects: 0,
+    archived_projects: 0,
+  });
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [projRes, evalRes] = await Promise.all([
+        const [projectsRes, archiveRes, notifRes] = await Promise.all([
           api.get("/dept-head/projects"),
-          api.get("/dept-head/evaluations"),
+          api.get("/dept-head/archive-projects"),
+          api.get("/dept-head/own-notifications"),
         ]);
-        setProjects(projRes.data?.data || projRes.data || []);
-        setEvaluations(evalRes.data || []);
+
+        const projects = projectsRes.data?.data || projectsRes.data || [];
+        const totalProjects = Array.isArray(projects) ? projects.length : 0;
+
+        const archived = archiveRes.data || [];
+        const archivedCount = Array.isArray(archived) ? archived.length : 0;
+
+        setOverview({
+          total_projects: totalProjects,
+          archived_projects: archivedCount,
+        });
+
+        const notifData = notifRes.data?.data || notifRes.data || [];
+        setNotifications(Array.isArray(notifData) ? notifData : []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -24,7 +40,7 @@ const DeptHeadDashboard = () => {
     fetchData();
   }, []);
 
-  if (loading) return <p className="text-gray-500">Loading…</p>;
+  if (loading) return <div className="p-4">Loading…</div>;
 
   return (
     <div className="space-y-6">
@@ -32,40 +48,49 @@ const DeptHeadDashboard = () => {
         Department Head Dashboard
       </h2>
 
+      {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg border p-6 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-500 uppercase">
-            Department Projects
+            Total Projects
           </h3>
           <p className="text-3xl font-bold text-[#1f67a8] mt-2">
-            {projects.length}
+            {overview.total_projects}
           </p>
         </div>
         <div className="bg-white rounded-lg border p-6 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-500 uppercase">
-            Evaluations
+            Archived Projects
           </h3>
           <p className="text-3xl font-bold text-[#1f67a8] mt-2">
-            {evaluations.length}
+            {overview.archived_projects}
           </p>
         </div>
       </div>
 
+      {/* Notifications */}
       <div className="bg-white rounded-lg border p-6 shadow-sm">
         <h3 className="font-semibold text-[#1f67a8] mb-4">
-          Recent Evaluations
+          Recent Notifications
         </h3>
-        {evaluations.length === 0 ? (
-          <p className="text-gray-500">No evaluations yet.</p>
+        {notifications.length === 0 ? (
+          <p className="text-gray-500">No notifications.</p>
         ) : (
-          <ul className="space-y-2">
-            {evaluations.slice(0, 5).map((ev) => (
-              <li key={ev.id} className="border-b py-2 text-sm">
-                {ev.project?.title} – {ev.evaluator_type}:{" "}
-                {ev.total_marks ?? "—"}%
-              </li>
+          <div className="space-y-2">
+            {notifications.slice(0, 10).map((n) => (
+              <div
+                key={n.notification_id || n.id}
+                className={`p-3 rounded border ${
+                  n.is_read ? "bg-gray-50" : "bg-blue-50 border-blue-200"
+                }`}
+              >
+                <p className="text-sm">{n.message_content}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(n.sent_at).toLocaleString()}
+                </p>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

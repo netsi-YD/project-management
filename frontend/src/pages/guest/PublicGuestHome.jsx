@@ -1,14 +1,29 @@
 // src/pages/guest/PublicGuestHome.jsx
-import React from "react";
-import Header from "../../components/shared/Header";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import Footer from "../../components/shared/Footer";
 import { Link } from "react-router-dom";
 
 export default function PublicGuestHome() {
+  const [recentProjects, setRecentProjects] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get("/api/public-projects")
+      .then((res) => {
+        // Ensure we have an array – some APIs wrap the data
+        const projects = res.data?.data || res.data || [];
+        const safeArray = Array.isArray(projects) ? projects : [];
+        setRecentProjects(safeArray.slice(0, 3));
+      })
+      .catch((err) => {
+        console.error("Failed to load public projects", err);
+        setRecentProjects([]); // fallback to empty array on error
+      });
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header />
-
       <main className="flex-1">
         <section className="bg-blue-400 text-white py-20">
           <div className="max-w-6xl mx-auto px-6 text-center">
@@ -96,6 +111,39 @@ export default function PublicGuestHome() {
             </div>
           </div>
         </section>
+
+        {/* Recently Archived Projects – only show if we have a real array with items */}
+        {Array.isArray(recentProjects) && recentProjects.length > 0 && (
+          <section className="py-16 bg-white">
+            <div className="max-w-6xl mx-auto px-6">
+              <h2 className="text-3xl font-semibold text-gray-800 mb-8 text-center">
+                Recently Archived Projects
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {recentProjects.map((p) => (
+                  <div
+                    key={p.project_id}
+                    className="border rounded-xl p-6 shadow-sm"
+                  >
+                    <h3 className="text-lg font-semibold text-[#1f67a8]">
+                      {p.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">By {p.student}</p>
+                    {p.file_url && (
+                      <a
+                        href={p.file_url}
+                        target="_blank"
+                        className="text-sm text-blue-600 hover:underline mt-3 inline-block"
+                      >
+                        Download Report
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         <section id="about-fyp" className="py-16 bg-white">
           <div className="max-w-6xl mx-auto px-6">

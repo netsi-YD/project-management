@@ -4,138 +4,191 @@ import api from "../../api/axios";
 const PendingProposals = () => {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [revisionComment, setRevisionComment] = useState({}); // per project id
-
-  const fetchProposals = async () => {
-    try {
-      const res = await api.get("/coordinator/proposals");
-      setProposals(res.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [expandedId, setExpandedId] = useState(null);
+  const [acceptedId, setAcceptedId] = useState(null); // track which proposal was accepted
 
   useEffect(() => {
+    const fetchProposals = async () => {
+      try {
+        const res = await api.get("/coordinator/proposals");
+        setProposals(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchProposals();
   }, []);
 
-  const handleAction = async (projectId, action) => {
+  const handleAction = async (projectId, action, chosenTitleIndex = null) => {
     try {
-      await api.put(`/coordinator/approve-proposal/${projectId}`, {
-        status: action,
-      });
+      const payload = { status: action };
+      if (chosenTitleIndex !== null) {
+        payload.chosen_title_index = chosenTitleIndex;
+      }
+      await api.put(`/coordinator/approve-proposal/${projectId}`, payload);
+      if (action === "approved") {
+        setAcceptedId(projectId);
+      }
       fetchProposals();
     } catch (err) {
-      alert("Action failed");
+      const msg =
+        err.response?.data?.message ||
+        err.response?.statusText ||
+        "Unknown error";
+      alert(`Failed to ${action}: ${msg}`);
     }
   };
 
-  const handleRequestRevision = async (projectId) => {
-    const comment = revisionComment[projectId]?.trim();
-    try {
-      await api.put(`/coordinator/request-revision/${projectId}`, { comment });
-      setRevisionComment({ ...revisionComment, [projectId]: "" });
-      fetchProposals();
-    } catch (err) {
-      alert("Failed to request revision");
-    }
+  const toggleExpand = (id) => {
+    setExpandedId(expandedId === id ? null : id);
   };
 
-  const [activeRevision, setActiveRevision] = useState(null); // project id currently editing
-
-  if (loading) return <p className="text-gray-500">Loading…</p>;
+  if (loading) return <p className="p-4">Loading…</p>;
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold text-[#1f67a8] mb-4">
+    <div className="p-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">
         Pending Proposals
       </h2>
       {proposals.length === 0 ? (
         <p className="text-gray-500">No pending proposals.</p>
       ) : (
         <div className="space-y-4">
-          {proposals.map((prop) => (
-            <div key={prop.project_id} className="border p-4 rounded mb-3">
-              <p className="font-medium">{prop.title}</p>
-              <p className="text-sm text-gray-500">
-                By: {prop.student?.full_name}
-              </p>
-
-              {/* View Proposal Document */}
-              {prop.submissions?.[0]?.file_path && (
-                <a
-                  href={`http://localhost:8000/api/storage/${prop.submissions[0].file_path}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-700 text-sm underline mt-1 inline-block"
-                >
-                  View Proposal Document
-                </a>
-              )}
-
-              {/* Preferred advisors */}
-              {prop.preferred_advisor_names && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Preferred advisors: {prop.preferred_advisor_names}
-                </p>
-              )}
-
-              <div className="flex gap-2 mt-2 items-center">
-                <button
-                  onClick={() => handleAction(prop.project_id, "approved")}
-                  className="bg-[#1f67a8] text-white px-3 py-1 rounded text-sm"
-                >
-                  Accept
-                </button>
-                <button
-                  onClick={() => handleAction(prop.project_id, "rejected")}
-                  className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={() =>
-                    setActiveRevision(
-                      activeRevision === prop.project_id
-                        ? null
-                        : prop.project_id,
-                    )
-                  }
-                  className="border border-[#1f67a8] text-[#1f67a8] px-3 py-1 rounded text-sm"
-                >
-                  {activeRevision === prop.project_id
-                    ? "Cancel"
-                    : "Request Revision"}
-                </button>
-              </div>
-
-              {/* Revision comment box */}
-              {activeRevision === prop.project_id && (
-                <div className="mt-2 flex gap-2 items-start">
-                  <textarea
-                    value={revisionComment[prop.project_id] || ""}
-                    onChange={(e) =>
-                      setRevisionComment({
-                        ...revisionComment,
-                        [prop.project_id]: e.target.value,
-                      })
-                    }
-                    placeholder="Specify what needs to be revised..."
-                    className="flex-1 border rounded px-3 py-1 text-sm"
-                    rows={2}
-                  />
+          {proposals.map((proposal) => {
+            const isAccepted = acceptedId === proposal.project_id;
+            return (
+              <div
+                key={proposal.project_id}
+                className={`bg-white rounded-lg border p-5 shadow-sm ${
+                  isAccepted ? "opacity-60" : ""
+                }`}
+              >
+                <div>
                   <button
-                    onClick={() => handleRequestRevision(prop.project_id)}
-                    className="bg-[#1f67a8] text-white px-3 py-1 rounded text-sm"
+                    onClick={() => toggleExpand(proposal.project_id)}
+                    className="text-lg font-semibold text-[#1f67a8] hover:underline text-left"
                   >
-                    Send
+                    Proposal from:{" "}
+                    {proposal.group_members.length > 0
+                      ? proposal.group_members.join(", ")
+                      : proposal.student_name}
                   </button>
+                  {isAccepted && (
+                    <span className="ml-3 text-green-700 text-sm font-medium">
+                      ✓ Accepted
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+
+                {expandedId === proposal.project_id && (
+                  <div className="mt-4 border-t pt-4 space-y-4">
+                    {proposal.description && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-1">
+                          Description
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {proposal.description}
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        Preferred Titles
+                      </h4>
+                      <ul className="space-y-3">
+                        {proposal.preferred_titles.map((title, index) => (
+                          <li
+                            key={index}
+                            className="border rounded-lg p-3 bg-gray-50"
+                          >
+                            <p className="text-sm text-gray-800 mb-2">
+                              {title}
+                            </p>
+                            {!isAccepted && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() =>
+                                    handleAction(
+                                      proposal.project_id,
+                                      "approved",
+                                      index,
+                                    )
+                                  }
+                                  className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleAction(
+                                      proposal.project_id,
+                                      "rejected",
+                                      index,
+                                    )
+                                  }
+                                  className="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700"
+                                >
+                                  Reject
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleAction(
+                                      proposal.project_id,
+                                      "revision",
+                                      index,
+                                    )
+                                  }
+                                  className="bg-yellow-500 text-white px-3 py-1 rounded text-xs hover:bg-yellow-600"
+                                >
+                                  Request Revision
+                                </button>
+                              </div>
+                            )}
+                            {isAccepted && (
+                              <p className="text-sm text-gray-400">
+                                No further actions available
+                              </p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {proposal.preferred_advisors.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-1">
+                          Preferred Advisors
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {proposal.preferred_advisors.join(", ")}
+                        </p>
+                      </div>
+                    )}
+
+                    {proposal.proposal_file && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-1">
+                          Document
+                        </h4>
+                        <a
+                          href={proposal.proposal_file.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          View Proposal Document
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

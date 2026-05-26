@@ -1,24 +1,67 @@
 import { useState } from "react";
 import api from "../../api/axios";
 
+const ALLOWED_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+];
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt"];
+const MAX_SIZE_MB = 15;
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
 const SimilarityCheck = () => {
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [fileError, setFileError] = useState("");
+
+  const validateFile = (selectedFile) => {
+    if (!selectedFile) {
+      setFileError("");
+      return true;
+    }
+    const fileName = selectedFile.name.toLowerCase();
+    const hasValidExtension = ALLOWED_EXTENSIONS.some((ext) =>
+      fileName.endsWith(ext),
+    );
+    const hasValidType = ALLOWED_TYPES.includes(selectedFile.type);
+
+    if (!hasValidExtension || !hasValidType) {
+      setFileError(
+        "Invalid file type. Only PDF, DOCX, and TXT files are allowed.",
+      );
+      return false;
+    }
+    if (selectedFile.size > MAX_SIZE_BYTES) {
+      setFileError(`File size must be less than ${MAX_SIZE_MB} MB.`);
+      return false;
+    }
+    setFileError("");
+    return true;
+  };
 
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      const isValid = validateFile(selectedFile);
+      setFile(isValid ? selectedFile : null);
+    } else {
+      setFile(null);
+      setFileError("");
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) {
-      setError("Please select a file.");
+      setMessage("❌ Please select a file.");
       return;
     }
+
     setLoading(true);
-    setError("");
+    setMessage("");
     setResult(null);
 
     const formData = new FormData();
@@ -31,7 +74,11 @@ const SimilarityCheck = () => {
       setResult(res.data);
     } catch (err) {
       console.error("Similarity check error:", err);
-      setError("Failed to check similarity. Please try again.");
+      setMessage(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Failed to check similarity.",
+      );
     } finally {
       setLoading(false);
     }
@@ -46,31 +93,36 @@ const SimilarityCheck = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Upload your document (TXT format only)
+              Upload Document (PDF, DOCX, TXT)
             </label>
             <input
               type="file"
-              onChange={handleFileChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               accept=".pdf,.docx,.txt"
-              required
+              onChange={handleFileChange}
+              className={`w-full border rounded-lg px-4 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 ${
+                fileError ? "border-red-400" : "border-gray-300"
+              }`}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Accepted: TXT files only (Max 10MB)
+              Accepted: PDF, DOCX, TXT (Max {MAX_SIZE_MB} MB)
             </p>
+            {fileError && (
+              <p className="text-xs text-red-600 mt-1">{fileError}</p>
+            )}
           </div>
+
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-[#1f67a8] text-white py-2 px-4 rounded-lg hover:bg-[#185a8c] transition-colors disabled:opacity-50"
+            disabled={loading || !file || !!fileError}
+            className="w-full bg-[#1f67a8] text-white py-2 px-4 rounded-lg hover:bg-[#185a8c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Checking…" : "Check Similarity"}
           </button>
         </form>
 
-        {error && (
+        {message && (
           <div className="mt-4 p-3 text-sm bg-red-50 text-red-800 rounded-lg">
-            {error}
+            {message}
           </div>
         )}
 

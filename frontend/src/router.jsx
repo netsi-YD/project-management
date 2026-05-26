@@ -7,7 +7,6 @@ import UploadProposal from "./pages/student/UploadProposal";
 import StudentLayout from "./components/layout/StudentLayout";
 import Dashboard from "./pages/student/Dashboard";
 import UploadFinalReport from "./pages/student/UploadFinalReport";
-import RequestAdvisor from "./pages/student/RequestAdvisor";
 import SubmissionHistory from "./pages/student/SubmissionHistory";
 import ArchivedProjects from "./pages/student/ArchivedProjects";
 import AdvisorCollaboration from "./pages/student/AdvisorCollaboration";
@@ -53,6 +52,8 @@ import ExaminerFeedback from "./pages/staff/ExaminerFeedback";
 import ViewFeedback from "./pages/student/ViewFeedback";
 import DeptHeadProjectDetail from "./pages/staff/DeptHeadProjectDetail";
 import ActivityLogs from "./pages/staff/ActivityLogs";
+import ArchivedProjectDetail from "./pages/student/ArchivedProjectDetail";
+
 const router = createBrowserRouter([
   { path: "/", element: <PublicGuestHome /> },
   { path: "/login", element: <Login /> },
@@ -67,7 +68,6 @@ const router = createBrowserRouter([
       { path: "dashboard", element: <Dashboard /> },
       { path: "upload-proposal", element: <UploadProposal /> },
       { path: "upload-report", element: <UploadFinalReport /> },
-      { path: "request-advisor", element: <RequestAdvisor /> },
       { path: "submissions", element: <SubmissionHistory /> },
       { path: "archive", element: <ArchivedProjects /> },
       { path: "collaboration", element: <AdvisorCollaboration /> },
@@ -77,6 +77,10 @@ const router = createBrowserRouter([
       { path: "my-groups", element: <MyGroups /> },
       { path: "messages", element: <StudentMessages /> },
       { path: "feedback/:projectId", element: <ViewFeedback /> },
+      {
+        path: "archived-project/:projectId",
+        element: <ArchivedProjectDetail />,
+      },
     ],
   },
   {

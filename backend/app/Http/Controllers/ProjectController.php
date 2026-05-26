@@ -18,80 +18,6 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'title'                   => 'required|string|max:255',
-            'description'             => 'required|string',
-            'group_id'                => 'nullable|integer|exists:project_group,group_id',
-            'preferred_advisor_ids'   => 'nullable|array',
-            'preferred_advisor_ids.*' => 'integer|exists:advisors,advisor_id',
-        ]);
-
-        // If a group is provided, make sure the current user actually belongs to it
-        if ($request->group_id) {
-            $student = \App\Models\Student::where('user_id', $request->user()->user_id)->first();
-
-            $isMember = \App\Models\ProjectGroup::where('group_id', $request->group_id)
-                ->whereHas('members', function ($q) use ($student) {
-                    $q->where('group_members.student_id', $student->student_id);
-                })->exists();
-
-            if (!$isMember) {
-                return response()->json([
-                    'message' => 'You are not a member of the selected group.',
-                ], 403);
-            }
-
-            // A group can only be linked to one project
-            $alreadyLinked = \App\Models\ProjectGroup::where('group_id', $request->group_id)
-                ->whereNotNull('project_id')
-                ->exists();
-
-            if ($alreadyLinked) {
-                return response()->json([
-                    'message' => 'This group already has a project linked to it.',
-                ], 422);
-            }
-        }
-
-        $advisorNames = null;
-        if ($request->filled('preferred_advisor_ids')) {
-            $advisorNames = \App\Models\Advisor::whereIn('advisor_id', $request->preferred_advisor_ids)
-                ->pluck('specialization')
-                ->implode(', ');
-        }
-
-        $project = Project::create([
-            'title'                   => $request->title,
-            'description'             => $request->description,
-            'student_id'              => $request->user()->user_id,
-            'status'                  => 'pending',
-            'department_id'           => 1,
-            'advisor_id'              => null,
-            'submission_date'         => now(),
-            'similarity_score'        => 0,
-            'preferred_advisor_names' => $advisorNames,
-        ]);
-
-        // Link the group to this project
-        if ($request->group_id) {
-            \App\Models\ProjectGroup::where('group_id', $request->group_id)
-                ->update(['project_id' => $project->project_id]);
-        }
-
-        ActivityLog::create([
-            'user_id'    => $request->user()->user_id,
-            'action'     => "Created project: {$project->title}",
-            'ip_address' => $request->ip(),
-        ]);
-
-        return response()->json([
-            'message' => 'Project created successfully',
-            'project' => $project,
-        ], 201);
-    }
-
     public function index(Request $request)
     {
         $projects = Project::where('student_id', $request->user()->user_id)->get();
@@ -119,4 +45,105 @@ class ProjectController extends Controller
             'projects' => $projects,
         ]);
     }
+
+    public function store(Request $request)
+{
+    $request->validate([
+        'title1'                  => 'required|string|max:255',
+        'title2'                  => 'required|string|max:255',
+        'title3'                  => 'required|string|max:255',
+        'description'             => 'nullable|string',
+        'preferred_advisor_ids'   => 'nullable|array|max:3',
+        'preferred_advisor_ids.*' => 'integer|exists:advisors,advisor_id',
+        'group_id'                => 'nullable|integer|exists:project_group,group_id',
+    ]);
+
+    $user = $request->user();
+    $student = \App\Models\Student::where('user_id', $user->user_id)->first();
+    $group = null;
+
+    if ($request->group_id) {
+        $group = \App\Models\ProjectGroup::find($request->group_id);
+        if (!$group) {
+            return response()->json(['message' => 'Group not found.'], 404);
+        }
+
+        $isMember = $group->members()->where('group_members.student_id', $student->student_id)->exists();
+        if (!$isMember) {
+            return response()->json(['message' => 'You are not a member of this group.'], 403);
+        }
+
+        if ($group->project_id) {
+            $existingProject = Project::find($group->project_id);
+            if ($existingProject) {
+                if ($existingProject->status === 'pending') {
+                    return response()->json(['message' => 'Your group already has a pending proposal. Please wait for coordinator review.'], 422);
+                }
+                $allowedStatuses = ['rejected', 'revision'];
+                if (!in_array($existingProject->status, $allowedStatuses)) {
+                    return response()->json(['message' => 'Your group already has an active project. Resubmission is only allowed after rejection or revision request.'], 422);
+                }
+                // Resubmit: update existing project
+                $project = $existingProject;
+                $project->update([
+                    'title'                   => $request->title1,
+                    'description'             => $request->description,
+                    'preferred_titles'        => json_encode([$request->title1, $request->title2, $request->title3]),
+                    'preferred_advisors'      => $request->preferred_advisor_ids ? json_encode($request->preferred_advisor_ids) : null,
+                    'preferred_advisor_names' => $advisorNames ?? null,
+                    'status'                  => 'pending',
+                ]);
+                ActivityLog::create([
+                    'user_id'    => $user->user_id,
+                    'action'     => "Resubmitted project: {$project->title}",
+                    'ip_address' => $request->ip(),
+                ]);
+                return response()->json(['message' => 'Project resubmitted', 'project' => $project], 201);
+            }
+        }
+    }
+
+    // Create new project
+    $advisorNames = null;
+    if ($request->filled('preferred_advisor_ids')) {
+        $advisorNames = \App\Models\Advisor::whereIn('advisor_id', $request->preferred_advisor_ids)
+            ->pluck('specialization')
+            ->implode(', ');
+    }
+
+    $project = Project::create([
+        'title'                   => $request->title1,
+        'description'             => $request->description,
+        'preferred_titles'        => json_encode([$request->title1, $request->title2, $request->title3]),
+        'preferred_advisors'      => $request->preferred_advisor_ids ? json_encode($request->preferred_advisor_ids) : null,
+        'student_id'              => $user->user_id,
+        'status'                  => 'pending',
+        'department_id'           => 1,
+        'advisor_id'              => null,
+        'submission_date'         => now(),
+        'similarity_score'        => 0,
+        'preferred_advisor_names' => $advisorNames,
+    ]);
+
+    // Safety: ensure titles are never null
+    if (empty($project->preferred_titles)) {
+        $project->update(['preferred_titles' => json_encode([$request->title1, $request->title2, $request->title3])]);
+    }
+
+    // Link the group
+    if ($request->group_id && $group) {
+        $group->update(['project_id' => $project->project_id]);
+    }
+
+    ActivityLog::create([
+        'user_id'    => $user->user_id,
+        'action'     => "Created project: {$project->title}",
+        'ip_address' => $request->ip(),
+    ]);
+
+    return response()->json([
+        'message' => 'Project created successfully',
+        'project' => $project,
+    ], 201);
+}
 }

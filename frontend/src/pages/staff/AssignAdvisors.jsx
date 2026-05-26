@@ -72,7 +72,7 @@ const AssignAdvisors = () => {
                 </option>
                 {advisors.map((a) => (
                   <option key={a.advisor_id} value={a.advisor_id}>
-                    {a.specialization} (ID {a.advisor_id})
+                    {a.full_name}
                   </option>
                 ))}
               </select>

@@ -1,96 +1,109 @@
-import Header from "../../components/shared/Header";
-import Footer from "../../components/shared/Footer";
+import { useState, useEffect } from "react";
+import axios from "axios";
 
-export default function GuestProjects() {
-  const departments = [
-    {
-      name: "Engineering",
-      projects: [
-        {
-          id: 1,
-          title: "Network Infrastructure Upgrade",
-          description: "Improving campus networking and security.",
-          fileUrl: "/sample-files/network-upgrade.pdf",
-        },
-        {
-          id: 2,
-          title: "AI Attendance System",
-          description: "Face-recognition–based class attendance tracker.",
-          fileUrl: "/sample-files/ai-attendance.pdf",
-        },
-      ],
-    },
-    {
-      name: "Business",
-      projects: [
-        {
-          id: 3,
-          title: "Market Analysis Dashboard",
-          description: "Interactive dashboard for business forecasting.",
-          fileUrl: "/sample-files/market-dashboard.pdf",
-        },
-      ],
-    },
-    {
-      name: "Health Science",
-      projects: [
-        {
-          id: 4,
-          title: "Medical Inventory Tracker",
-          description: "Digitized medical supply management system.",
-          fileUrl: "/sample-files/medical-inventory.pdf",
-        },
-      ],
-    },
-  ];
+const GuestProjects = () => {
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [openDept, setOpenDept] = useState(null);
+
+  useEffect(() => {
+    axios
+      .get("/api/public-projects") // <-- Vite proxy must forward this
+      .then((res) => {
+        const data = res.data; // Already an array
+        const safeArray = Array.isArray(data) ? data : [];
+        const cleaned = safeArray.map((dept) => ({
+          ...dept,
+          department: dept.department || "Uncategorized",
+        }));
+        setDepartments(cleaned);
+      })
+      .catch((err) => {
+        console.error("Failed to load projects", err);
+        setDepartments([]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggleDept = (dept) => {
+    setOpenDept((prev) => (prev === dept ? null : dept));
+  };
+
+  if (loading)
+    return <div className="p-6 text-center text-gray-500">Loading…</div>;
 
   return (
-    <>
-      <Header />
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-[#1f67a8] text-white py-8 text-center">
+        <h1 className="text-3xl font-bold">University of Gondar</h1>
+        <p className="text-lg mt-2">Final Year Project Repository</p>
+      </header>
 
-      <div className="px-6 py-10 max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Public Projects</h1>
-
-        {departments.map((dept) => (
-          <div key={dept.name} className="mb-10">
-            <h2 className="text-2xl font-semibold mb-4">{dept.name}</h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {dept.projects.map((project) => (
-                <div
-                  key={project.id}
-                  className="border p-4 rounded-xl shadow hover:shadow-lg transition"
+      <main className="max-w-4xl mx-auto p-6">
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+          Archived Projects by Department
+        </h2>
+        {departments.length === 0 ? (
+          <p className="text-gray-500">No archived projects available yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {departments.map((dept) => (
+              <div
+                key={dept.department}
+                className="bg-white rounded-lg border shadow-sm"
+              >
+                <button
+                  onClick={() => toggleDept(dept.department)}
+                  className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-50"
                 >
-                  <h3 className="text-xl font-semibold mb-2">
-                    {project.title}
-                  </h3>
-                  <p className="text-gray-700 mb-4">{project.description}</p>
-
-                  <div className="flex gap-3">
-                    <a
-                      href={project.fileUrl}
-                      target="_blank"
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      Open
-                    </a>
-
-                    <a
-                      href={project.fileUrl}
-                      download
-                      className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900"
-                    >
-                      Download
-                    </a>
+                  <span className="text-lg font-semibold text-[#1f67a8]">
+                    {dept.department}
+                  </span>
+                  <span className="text-gray-400 text-xl">
+                    {openDept === dept.department ? "▾" : "▸"}
+                  </span>
+                </button>
+                {openDept === dept.department && (
+                  <div className="border-t p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {dept.projects.map((p) => (
+                        <div
+                          key={p.project_id}
+                          className="border rounded-lg p-4 bg-gray-50"
+                        >
+                          <h3 className="font-semibold text-gray-800">
+                            {p.title}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            By: {p.student}
+                          </p>
+                          {p.abstract && (
+                            <p className="text-sm text-gray-500 mt-2 line-clamp-3">
+                              {p.abstract}
+                            </p>
+                          )}
+                          {p.file_url && (
+                            <a
+                              href={p.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block mt-3 text-sm text-blue-600 hover:underline"
+                            >
+                              Download Final Report
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-
-      <Footer />
-    </>
+        )}
+      </main>
+    </div>
   );
-}
+};
+
+export default GuestProjects;

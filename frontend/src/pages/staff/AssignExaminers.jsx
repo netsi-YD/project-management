@@ -5,7 +5,7 @@ const AssignExaminers = () => {
   const [projects, setProjects] = useState([]);
   const [examiners, setExaminers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState({}); // project_id -> examiner_id
+  const [selected, setSelected] = useState({});
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -38,7 +38,6 @@ const AssignExaminers = () => {
         project_id: projectId,
         examiner_id: examinerId,
       });
-      // Remove project from list
       setProjects((prev) => prev.filter((p) => p.project_id !== projectId));
       setSelected((prev) => ({ ...prev, [projectId]: "" }));
     } catch (err) {
@@ -85,7 +84,7 @@ const AssignExaminers = () => {
                   </option>
                   {examiners.map((e) => (
                     <option key={e.examiner_id} value={e.examiner_id}>
-                      {e.expertise_area} (ID {e.examiner_id})
+                      {e.full_name}
                     </option>
                   ))}
                 </select>

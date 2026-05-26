@@ -1,13 +1,13 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 
 const StaffSidebar = ({ user }) => {
   const advisorMenu = [
     { label: "Overview", path: "/staff" },
-    { label: "Advisor Requests", path: "/staff/advisor-requests" },
     { label: "My Groups", path: "/staff/advisor-groups" },
     { label: "Messages", path: "/staff/messages" },
     { label: "Similarity Check", path: "/staff/similarity" },
   ];
+
   const examinerMenu = [
     { label: "Overview", path: "/staff" },
     { label: "Evaluate Projects", path: "/staff/evaluate" },
@@ -40,27 +40,29 @@ const StaffSidebar = ({ user }) => {
     { label: "Activity Log", path: "/staff/activity-logs" },
   ];
 
-  // No roles assigned – fallback UI
   if (!user || !user.roles || user.roles.length === 0) {
     return (
       <aside className="w-64 bg-white border-r min-h-screen p-4 flex flex-col">
-        <div className="flex flex-col items-center mb-6">
+        <Link
+          to="/"
+          className="flex flex-col items-center mb-6 hover:opacity-80"
+        >
           <img
-            src="/uog-logo.png"
+            src="/image/logo.png"
             alt="University of Gondar"
             className="h-16 w-auto mb-2"
           />
           <h2 className="text-sm font-semibold text-[#1f67a8] text-center leading-tight">
             UoG Final Year Project Management Portal
           </h2>
-        </div>
+        </Link>
         <p className="text-gray-400">No roles assigned.</p>
         <div className="mt-auto border-t pt-4">
           <button
             onClick={() => {
               localStorage.removeItem("token");
               localStorage.removeItem("roles");
-              window.location.href = "/login";
+              window.location.href = "/";
             }}
             className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
           >
@@ -94,8 +96,7 @@ const StaffSidebar = ({ user }) => {
 
   return (
     <aside className="w-64 bg-white border-r min-h-screen p-4 flex flex-col">
-      {/* Logo + Portal Title */}
-      <div className="flex flex-col items-center mb-6">
+      <Link to="/" className="flex flex-col items-center mb-6 hover:opacity-80">
         <img
           src="/image/logo.png"
           alt="University of Gondar"
@@ -104,7 +105,7 @@ const StaffSidebar = ({ user }) => {
         <h2 className="text-sm font-semibold text-[#1f67a8] text-center leading-tight">
           UoG Final Year Project Management Portal
         </h2>
-      </div>
+      </Link>
 
       {user.roles.includes("Advisor") && renderSection("Advisor", advisorMenu)}
       {user.roles.includes("Examiner") &&
@@ -121,7 +122,7 @@ const StaffSidebar = ({ user }) => {
           onClick={() => {
             localStorage.removeItem("token");
             localStorage.removeItem("roles");
-            window.location.href = "/login";
+            window.location.href = "/";
           }}
           className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
         >

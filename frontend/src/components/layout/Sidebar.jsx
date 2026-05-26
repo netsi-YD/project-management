@@ -1,16 +1,13 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   HiOutlineHome,
   HiOutlineUpload,
   HiOutlineDocumentReport,
-  HiOutlineUserAdd,
   HiOutlineCollection,
   HiOutlineArchive,
   HiOutlineMail,
   HiOutlineUserGroup,
-  HiOutlinePlusCircle,
   HiOutlineLightBulb,
   HiOutlineDocumentSearch,
   HiOutlineChevronDown,
@@ -18,6 +15,8 @@ import {
   HiOutlineFolder,
   HiOutlineSparkles,
   HiOutlineUsers,
+  HiOutlineChat,
+  HiOutlinePlusCircle,
 } from "react-icons/hi";
 
 const groups = [
@@ -33,12 +32,12 @@ const groups = [
     children: [
       {
         to: "/student/create-project",
-        label: "Create Project",
+        label: "My Project",
         icon: HiOutlinePlusCircle,
       },
       {
         to: "/student/upload-proposal",
-        label: "Upload Proposal",
+        label: "Submit Proposal",
         icon: HiOutlineUpload,
       },
       {
@@ -75,22 +74,6 @@ const groups = [
     ],
   },
   {
-    label: "Advisor",
-    icon: HiOutlineUserAdd,
-    children: [
-      {
-        to: "/student/request-advisor",
-        label: "Request Advisor",
-        icon: HiOutlineUserAdd,
-      },
-      {
-        to: "/student/collaboration",
-        label: "Collaboration",
-        icon: HiOutlineUserGroup,
-      },
-    ],
-  },
-  {
     label: "Communication",
     icon: HiOutlineUsers,
     children: [
@@ -100,6 +83,11 @@ const groups = [
         icon: HiOutlineUserGroup,
       },
       { to: "/student/messages", label: "Messages", icon: HiOutlineMail },
+      {
+        to: "/student/collaboration",
+        label: "Collaboration",
+        icon: HiOutlineChat,
+      },
     ],
   },
 ];
@@ -108,11 +96,11 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Pre-open the group that contains the active route
   const initialOpen = groups.reduce((acc, g) => {
     if (
       !g.single &&
-      g.children?.some((c) => location.pathname.startsWith(c.to))
+      g.children &&
+      g.children.some((c) => location.pathname.startsWith(c.to))
     ) {
       acc[g.label] = true;
     }
@@ -128,12 +116,15 @@ const Sidebar = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("roles");
-    navigate("/login");
+    navigate("/");
   };
 
   return (
     <aside className="w-56 bg-white border-r border-gray-200 flex flex-col">
-      <div className="shrink-0 border-b border-gray-200 p-4 flex flex-col items-center">
+      <Link
+        to="/"
+        className="shrink-0 border-b border-gray-200 p-4 flex flex-col items-center hover:opacity-80"
+      >
         <img
           src="/image/logo.png"
           alt="University of Gondar"
@@ -142,7 +133,7 @@ const Sidebar = () => {
         <h1 className="text-xs font-semibold text-[#1f67a8] text-center leading-tight">
           UoG Final Year Project Management Portal
         </h1>
-      </div>
+      </Link>
 
       <nav className="flex-1 py-3 overflow-y-auto">
         {groups.map((group) => {
@@ -165,7 +156,7 @@ const Sidebar = () => {
             );
           }
 
-          const isGroupActive = group.children.some((c) =>
+          const isGroupActive = group.children?.some((c) =>
             location.pathname.startsWith(c.to),
           );
           const isOpen = !!open[group.label];
@@ -189,8 +180,7 @@ const Sidebar = () => {
                 )}
               </button>
 
-              {/* Children */}
-              {isOpen && (
+              {isOpen && group.children && (
                 <div className="ml-4 border-l border-gray-100">
                   {group.children.map((item) => (
                     <NavLink
@@ -215,7 +205,6 @@ const Sidebar = () => {
         })}
       </nav>
 
-      {/* Logout */}
       <div className="shrink-0 border-t border-gray-200 p-3">
         <button
           onClick={handleLogout}
