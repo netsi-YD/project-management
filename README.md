@@ -5,16 +5,16 @@ This Final Year Project Management System is a web-based application developed f
 The platform is designed to improve communication, supervision, project tracking, evaluation, and document management between students, advisors, coordinators, and department administrators. Traditionally, final year project activities are managed manually, which can lead to delays, poor communication, document loss, and inefficient monitoring. This system automates the entire workflow to ensure efficiency, transparency, and accessibility.
 
 **Main Features**
-Student project registration and proposal submission
-Advisor assignment and approval workflow
-Project progress tracking and milestone management
-File and document upload system
-Communication between students and supervisors
-Project evaluation and grading management
-Department coordinator dashboard and reporting
-User authentication and role-based access control
-Notification and status update system
-Centralized database for project records
+1. Student project registration and proposal submission
+2. Advisor assignment and approval workflow
+3. Project progress tracking and milestone management
+4. File and document upload system
+5. Communication between students and supervisors
+6. Project evaluation and grading management
+7. Department coordinator dashboard and reporting
+8. User authentication and role-based access control
+9. Notification and status update system
+10. Centralized database for project records
 **Technologies Used**
 **Backend**
 Laravel
