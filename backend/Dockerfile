@@ -1,4 +1,3 @@
-cat > Dockerfile << 'EOF'
 FROM php:8.2-apache
 
 RUN apt-get update && apt-get install -y \
@@ -21,4 +20,3 @@ RUN sed -ri -e 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-avail
 RUN a2enmod rewrite
 
 EXPOSE 80
-EOF
