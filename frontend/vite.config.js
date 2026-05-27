@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    hmr: false,
     allowedHosts: [
       "localhost",
       ".loca.lt", // allow all localtunnel subdomains
