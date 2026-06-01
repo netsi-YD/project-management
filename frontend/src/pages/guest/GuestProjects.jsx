@@ -8,9 +8,9 @@ const GuestProjects = () => {
 
   useEffect(() => {
     axios
-      .get("/api/public-projects") // <-- Vite proxy must forward this
+      .get("/api/public-projects")
       .then((res) => {
-        const data = res.data; // Already an array
+        const data = res.data || [];
         const safeArray = Array.isArray(data) ? data : [];
         const cleaned = safeArray.map((dept) => ({
           ...dept,
@@ -18,10 +18,7 @@ const GuestProjects = () => {
         }));
         setDepartments(cleaned);
       })
-      .catch((err) => {
-        console.error("Failed to load projects", err);
-        setDepartments([]);
-      })
+      .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
@@ -87,7 +84,7 @@ const GuestProjects = () => {
                               href={p.file_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-block mt-3 text-sm text-blue-600 hover:underline"
+                              className="inline-block mt-3 px-4 py-1.5 bg-[#1f67a8] text-white rounded text-sm hover:bg-blue-800"
                             >
                               Download Final Report
                             </a>

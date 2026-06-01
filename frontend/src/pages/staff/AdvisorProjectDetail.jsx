@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../../api/axios";
 
-// ====== EVALUATION CRITERIA (30% total) ======
 const CRITERIA = [
   { key: "attendance", label: "Attendance (5%)", max: 5 },
   { key: "document_preparation", label: "Document preparation (10%)", max: 10 },
@@ -14,7 +13,7 @@ const CRITERIA = [
   { key: "progress_report", label: "Progress report (10%)", max: 10 },
 ];
 
-const TOTAL_MAX = CRITERIA.reduce((sum, c) => sum + c.max, 0); // 30
+const TOTAL_MAX = CRITERIA.reduce((sum, c) => sum + c.max, 0);
 
 const AdvisorProjectDetail = () => {
   const { projectId } = useParams();
@@ -22,16 +21,14 @@ const AdvisorProjectDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Review form state
   const [reviewComment, setReviewComment] = useState("");
   const [reviewStatus, setReviewStatus] = useState("");
   const [reviewMessage, setReviewMessage] = useState("");
 
-  // Per‑student evaluation state
-  const [marks, setMarks] = useState({}); // { [userId]: { [criteriaKey]: value } }
-  const [comments, setComments] = useState({}); // { [userId]: string }
+  const [marks, setMarks] = useState({});
+  const [comments, setComments] = useState({});
   const [evalMessages, setEvalMessages] = useState({});
-  const [errors, setErrors] = useState({}); // { [userId]: string[] }
+  const [errors, setErrors] = useState({});
 
   const fetchProject = async () => {
     try {
@@ -68,7 +65,6 @@ const AdvisorProjectDetail = () => {
     }
   };
 
-  // Generic handler for all numeric inputs
   const handleMarkChange = (studentId, criteriaKey, rawValue) => {
     setMarks((prev) => ({
       ...prev,
@@ -108,6 +104,12 @@ const AdvisorProjectDetail = () => {
   };
 
   const handleEvalSubmit = async (studentId) => {
+    console.log("Submitting evaluation for studentId:", studentId); // debug
+    if (!studentId) {
+      alert("Student ID missing. Cannot submit evaluation.");
+      return;
+    }
+
     const errs = validateStudentMarks(studentId);
     if (errs.length > 0) {
       setErrors((prev) => ({ ...prev, [studentId]: errs }));
@@ -116,25 +118,27 @@ const AdvisorProjectDetail = () => {
 
     const detailedMarks = {};
     CRITERIA.forEach((crit) => {
-      const val = Number(marks[studentId][crit.key]);
-      detailedMarks[crit.label] = val;
+      detailedMarks[crit.label] = Number(marks[studentId][crit.key]);
     });
 
     try {
-      await api.post("/evaluation/submit", {
+      const payload = {
         project_id: project.project_id,
         student_id: studentId,
         evaluator_type: "advisor",
         detailed_marks: detailedMarks,
         student_comments: comments[studentId] || "",
         submit: true,
-      });
+      };
+      console.log("Evaluation payload:", payload); // debug
+      await api.post("/evaluation/submit", payload);
       setEvalMessages((prev) => ({
         ...prev,
         [studentId]: "✓ Evaluation submitted",
       }));
       setErrors((prev) => ({ ...prev, [studentId]: [] }));
     } catch (err) {
+      console.error("Submit error:", err.response?.data || err); // debug
       alert("Failed to submit evaluation");
     }
   };
@@ -178,7 +182,6 @@ const AdvisorProjectDetail = () => {
       <p className="text-gray-600">Student: {project.student?.full_name}</p>
       <p className="text-gray-600">Status: {project.status}</p>
 
-      {/* Submissions */}
       <div className="mt-6">
         <h2 className="text-xl font-semibold mb-2">Submissions</h2>
         {project.submissions?.length ? (
@@ -207,7 +210,6 @@ const AdvisorProjectDetail = () => {
         )}
       </div>
 
-      {/* Review */}
       <div className="mt-8 border-t pt-6">
         <h2 className="text-xl font-semibold mb-2">Review & Status Change</h2>
         {reviewMessage && (
@@ -240,7 +242,6 @@ const AdvisorProjectDetail = () => {
         </button>
       </div>
 
-      {/* Evaluation Table */}
       <div className="mt-8 border-t pt-6">
         <h2 className="text-xl font-semibold mb-4">
           Evaluate Students (Total: {TOTAL_MAX} marks)
@@ -275,15 +276,12 @@ const AdvisorProjectDetail = () => {
                   const total = getTotal(studentId);
                   const errList = errors[studentId] || [];
                   const msg = evalMessages[studentId];
-
                   return (
                     <tr key={studentId} className="hover:bg-gray-50">
                       <td className="border p-2 font-medium">
                         {student.fullName}
                       </td>
                       <td className="border p-2">{student.campusId}</td>
-
-                      {/* All criteria inputs are now numeric */}
                       {CRITERIA.map((crit) => (
                         <td key={crit.key} className="border p-1 text-center">
                           <input
@@ -303,7 +301,6 @@ const AdvisorProjectDetail = () => {
                           />
                         </td>
                       ))}
-
                       <td className="border p-2 text-center font-bold">
                         {total}/{TOTAL_MAX}
                       </td>

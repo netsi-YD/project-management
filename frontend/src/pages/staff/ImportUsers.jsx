@@ -11,13 +11,11 @@ const ImportUsers = () => {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      const allowedExtensions = [".csv", ".xlsx", ".xls"];
+      const allowedExtensions = [".csv"];
       const fileName = selectedFile.name.toLowerCase();
       const isValid = allowedExtensions.some((ext) => fileName.endsWith(ext));
       if (!isValid) {
-        setError(
-          "Invalid file type. Please upload a CSV or Excel file (.csv, .xlsx, .xls).",
-        );
+        setError("Invalid file type. Please upload a CSV file (.csv).");
         setFile(null);
         return;
       }
@@ -30,7 +28,7 @@ const ImportUsers = () => {
 
   const handleUpload = async () => {
     if (!file) {
-      setError("Please select a CSV or Excel file.");
+      setError("Please select a CSV file.");
       return;
     }
     setLoading(true);
@@ -58,22 +56,26 @@ const ImportUsers = () => {
       </h2>
       <div className="bg-white rounded-lg border p-6 shadow-sm space-y-4">
         <p className="text-gray-600 text-sm">
-          Upload a CSV or Excel file with columns:{" "}
+          Upload a CSV file with columns:{" "}
           <strong>
             full_name, email, phone_number, gender, department, role,
             year_of_study
           </strong>{" "}
           (year only for students).
         </p>
+        <p className="text-yellow-600 text-sm bg-yellow-50 p-2 rounded">
+          Excel files (.xlsx/.xls) are not supported directly. Please convert
+          your file to CSV before uploading.
+        </p>
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           <input
             type="file"
-            accept=".csv,.xlsx,.xls"
+            accept=".csv"
             onChange={handleFileChange}
             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#1f67a8] file:text-white hover:file:bg-blue-700"
           />
           <p className="text-xs text-gray-400 mt-2">
-            Accepted: CSV, Excel (.xlsx, .xls)
+            Accepted: CSV (.csv) only
           </p>
         </div>
         {error && (

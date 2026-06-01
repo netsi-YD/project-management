@@ -11,7 +11,8 @@ class Evaluation extends Model
     protected $table = 'evaluations';
 protected $fillable = [
     'project_id', 'evaluator_id', 'evaluator_type', 'detailed_marks',
-    'total_marks', 'student_comments', 'coordinator_remarks', 'status'
+    'total_marks', 'student_comments', 'coordinator_remarks', 'status',
+    'student_id',
 ];
 protected $casts = [
     'detailed_marks' => 'array',

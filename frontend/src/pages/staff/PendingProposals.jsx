@@ -27,20 +27,37 @@ const PendingProposals = () => {
       if (chosenTitleIndex !== null) {
         payload.chosen_title_index = chosenTitleIndex;
       }
+      // 1. Perform the approve/reject/revision action
       await api.put(`/coordinator/approve-proposal/${projectId}`, payload);
-      if (action === "approved") {
-        setAcceptedId(projectId);
+
+      // 2. Refresh the list silently (any failure is ignored)
+      try {
+        const res = await api.get("/coordinator/proposals");
+        setProposals(res.data);
+      } catch (refreshErr) {
+        console.error("Failed to refresh proposals", refreshErr);
       }
-      fetchProposals();
     } catch (err) {
-      const msg =
-        err.response?.data?.message ||
-        err.response?.statusText ||
-        "Unknown error";
+      // Only shows alert if the main action failed
+      let msg = "Unknown error";
+      if (err.response) {
+        const data = err.response.data;
+        if (data.message) {
+          msg = data.message;
+        } else if (data.errors) {
+          msg = Object.values(data.errors).flat().join(", ");
+        } else {
+          msg = JSON.stringify(data);
+        }
+        msg = `[${err.response.status}] ${msg}`;
+      } else if (err.request) {
+        msg = "No response from server. Check your connection.";
+      } else {
+        msg = err.message;
+      }
       alert(`Failed to ${action}: ${msg}`);
     }
   };
-
   const toggleExpand = (id) => {
     setExpandedId(expandedId === id ? null : id);
   };

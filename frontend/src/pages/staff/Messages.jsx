@@ -1,112 +1,103 @@
 import { useState, useEffect } from "react";
+import api from "../../api/axios";
 
 const Messages = () => {
   const [tab, setTab] = useState("groups");
-  // Group chat state
+
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupMessages, setGroupMessages] = useState([]);
   const [newGroupMsg, setNewGroupMsg] = useState("");
-  // Direct message state
-  const [users, setUsers] = useState([]);
+
+  const [contacts, setContacts] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [directMessages, setDirectMessages] = useState([]);
   const [newDirectMsg, setNewDirectMsg] = useState("");
 
-  const token = () => localStorage.getItem("token");
-  const authHeaders = () => ({
-    Authorization: `Bearer ${token()}`,
-    Accept: "application/json",
-    "Content-Type": "application/json",
-  });
-
-  // Fetch advisor's groups
   useEffect(() => {
-    fetch("http://localhost:8000/api/advisor/groups", {
-      headers: authHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => setGroups(data || []))
-      .catch(console.error);
-  }, []);
+    // Fetch advisor's projects (which include group members with user_id)
+    api
+      .get("/advisor/projects")
+      .then((res) => {
+        const data = res.data || [];
+        const safeArray = Array.isArray(data) ? data : [];
+        setGroups(safeArray);
 
-  // Fetch students for DM (reuse admin/users endpoint – adjust if needed)
-  useEffect(() => {
-    fetch("http://localhost:8000/api/admin/users", { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((data) => {
-        const students = (data || []).filter((u) =>
-          u.roles?.includes("Student"),
-        );
-        setUsers(students);
+        // Build DM contacts from group members
+        const contactMap = new Map();
+        safeArray.forEach((project) => {
+          if (project.group && project.group.members) {
+            project.group.members.forEach((member) => {
+              // member.user_id is the correct identifier for direct messages
+              if (member.user_id && !contactMap.has(member.user_id)) {
+                contactMap.set(member.user_id, {
+                  user_id: member.user_id,
+                  full_name: member.full_name,
+                  type: "student",
+                });
+              }
+            });
+          }
+        });
+        setContacts(Array.from(contactMap.values()));
       })
-      .catch(() => {});
+      .catch(() => {
+        setGroups([]);
+        setContacts([]);
+      });
   }, []);
 
   // ─── Group chat handlers ────────────────────
-  const openGroupChat = (group) => {
-    setSelectedGroup(group);
+  const openGroupChat = (project) => {
+    const groupId = project.group?.group_id;
+    if (!groupId) return;
+
+    setSelectedGroup(project);
     setSelectedUser(null);
-    fetch(`http://localhost:8000/api/groups/${group.group_id}/messages`, {
-      headers: authHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => setGroupMessages(data || []))
+    api
+      .get(`/groups/${groupId}/messages`)
+      .then((res) => setGroupMessages(res.data || []))
       .catch(() => setGroupMessages([]));
   };
 
   const sendGroupMessage = async () => {
     if (!newGroupMsg.trim() || !selectedGroup) return;
+    const groupId = selectedGroup.group?.group_id;
+    if (!groupId) return;
     try {
-      await fetch("http://localhost:8000/api/messages", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          group_id: selectedGroup.group_id,
-          message: newGroupMsg,
-        }),
+      await api.post("/messages", {
+        group_id: groupId,
+        message: newGroupMsg,
       });
       setNewGroupMsg("");
-      const res = await fetch(
-        `http://localhost:8000/api/groups/${selectedGroup.group_id}/messages`,
-        { headers: authHeaders() },
-      );
-      const data = await res.json();
-      setGroupMessages(data || []);
+      const res = await api.get(`/groups/${groupId}/messages`);
+      setGroupMessages(res.data || []);
     } catch {
       alert("Failed to send");
     }
   };
 
   // ─── Direct message handlers ────────────────────
-  const openDirectChat = (user) => {
-    setSelectedUser(user);
+  const openDirectChat = (contact) => {
+    setSelectedUser(contact);
     setSelectedGroup(null);
-    fetchDirectMessages(user.user_id);
-  };
-
-  const fetchDirectMessages = (userId) => {
-    fetch(`http://localhost:8000/api/messages/direct/${userId}`, {
-      headers: authHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => setDirectMessages(data || []))
+    api
+      .get(`/messages/direct/${contact.user_id}`)
+      .then((res) => setDirectMessages(res.data || []))
       .catch(() => setDirectMessages([]));
   };
 
   const sendDirectMessage = async () => {
     if (!newDirectMsg.trim() || !selectedUser) return;
     try {
-      await fetch("http://localhost:8000/api/messages", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          receiver_id: selectedUser.user_id,
-          message: newDirectMsg,
-        }),
+      await api.post("/messages", {
+        receiver_id: selectedUser.user_id,
+        message: newDirectMsg,
       });
       setNewDirectMsg("");
-      fetchDirectMessages(selectedUser.user_id);
+      // Reload the conversation immediately
+      const res = await api.get(`/messages/direct/${selectedUser.user_id}`);
+      setDirectMessages(res.data || []);
     } catch {
       alert("Failed to send");
     }
@@ -115,6 +106,7 @@ const Messages = () => {
   return (
     <div>
       <h2 className="text-xl font-semibold text-[#1f67a8] mb-4">Messages</h2>
+
       <div className="flex gap-4 mb-4">
         <button
           onClick={() => setTab("groups")}
@@ -138,25 +130,28 @@ const Messages = () => {
               <p className="text-gray-500">No groups yet.</p>
             ) : (
               <ul className="space-y-2">
-                {groups.map((g) => (
+                {groups.map((project) => (
                   <li
-                    key={g.group_id}
+                    key={project.project_id}
                     className="border-b pb-2 cursor-pointer hover:text-[#1f67a8]"
-                    onClick={() => openGroupChat(g)}
+                    onClick={() => openGroupChat(project)}
                   >
-                    {g.project?.title || g.project_title} – Group{" "}
-                    {g.group_number}
+                    {project.group
+                      ? `Group ${project.group.group_number} – ${project.title}`
+                      : project.title || `Project #${project.project_id}`}
                   </li>
                 ))}
               </ul>
             )}
           </div>
+
           {selectedGroup && (
             <div className="bg-white rounded-lg border p-4 shadow-sm">
               <h3 className="font-semibold text-[#1f67a8] mb-3">
                 Chat:{" "}
-                {selectedGroup.project?.title || selectedGroup.project_title} –
-                Group {selectedGroup.group_number}
+                {selectedGroup.group
+                  ? `Group ${selectedGroup.group.group_number}`
+                  : selectedGroup.title}
               </h3>
               <div className="h-64 overflow-y-auto space-y-2 mb-4 border rounded p-2">
                 {groupMessages.length === 0 && (
@@ -197,23 +192,27 @@ const Messages = () => {
       {tab === "direct" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg border p-4 shadow-sm">
-            <h3 className="font-semibold text-[#1f67a8] mb-3">Students</h3>
-            {users.length === 0 ? (
-              <p className="text-gray-500">No students found.</p>
+            <h3 className="font-semibold text-[#1f67a8] mb-3">Contacts</h3>
+            {contacts.length === 0 ? (
+              <p className="text-gray-500">No contacts yet.</p>
             ) : (
               <ul className="space-y-2">
-                {users.map((u) => (
+                {contacts.map((c) => (
                   <li
-                    key={u.user_id}
+                    key={c.user_id}
                     className="border-b pb-2 cursor-pointer hover:text-[#1f67a8]"
-                    onClick={() => openDirectChat(u)}
+                    onClick={() => openDirectChat(c)}
                   >
-                    {u.full_name}
+                    {c.full_name}{" "}
+                    <span className="text-xs text-gray-400 capitalize">
+                      ({c.type})
+                    </span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
+
           {selectedUser && (
             <div className="bg-white rounded-lg border p-4 shadow-sm">
               <h3 className="font-semibold text-[#1f67a8] mb-3">
@@ -224,17 +223,8 @@ const Messages = () => {
                   <p className="text-gray-500">No messages.</p>
                 )}
                 {directMessages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`flex ${m.sender_id === selectedUser.user_id ? "justify-start" : "justify-end"}`}
-                  >
-                    <div
-                      className={`rounded p-2 max-w-[80%] ${
-                        m.sender_id === selectedUser.user_id
-                          ? "bg-gray-100"
-                          : "bg-blue-50"
-                      }`}
-                    >
+                  <div key={m.id} className="flex">
+                    <div className="bg-blue-50 rounded p-2 max-w-[80%]">
                       <p className="text-sm text-gray-800">{m.message}</p>
                       <p className="text-xs text-gray-500">
                         {m.sender?.full_name} ·{" "}

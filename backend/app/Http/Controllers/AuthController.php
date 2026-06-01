@@ -46,41 +46,47 @@ class AuthController extends Controller
     }
 
     public function login(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required'
-        ]);
+{
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required'
+    ]);
 
-        $user = User::where('email', $request->email)->first();
+    $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
-            return response()->json([
-                'message' => 'User not found',
-            ], 404);
-        }
-
-        if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
-        }
-
-        $roles = $user->roles()->pluck('role_name');
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        // Log the login activity
-        ActivityLog::create([
-            'user_id'    => $user->user_id,
-            'action'     => 'User logged in',
-            'ip_address' => $request->ip(),
-        ]);
-
-       return response()->json([
-    'token'     => $token,
-    'roles'     => $roles,
-    'full_name' => $user->full_name,
-    'user_id'   => $user->user_id,   // ← add this
-]);
+    if (!$user) {
+        return response()->json([
+            'message' => 'User not found',
+        ], 404);
     }
+
+    // Block deactivated accounts
+    if ($user->status !== 'active') {
+        return response()->json([
+            'message' => 'Account is deactivated. Contact administrator.',
+        ], 403);
+    }
+
+    if (!Hash::check($request->password, $user->password)) {
+        return response()->json(['message' => 'Invalid credentials'], 401);
+    }
+
+    $roles = $user->roles()->pluck('role_name');
+    $token = $user->createToken('auth_token')->plainTextToken;
+
+    ActivityLog::create([
+        'user_id'    => $user->user_id,
+        'action'     => 'User logged in',
+        'ip_address' => $request->ip(),
+    ]);
+
+    return response()->json([
+        'token'     => $token,
+        'roles'     => $roles,
+        'full_name' => $user->full_name,
+        'user_id'   => $user->user_id,
+    ]);
+}
 
     public function logout(Request $request)
     {

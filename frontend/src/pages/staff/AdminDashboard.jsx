@@ -2,23 +2,20 @@ import { useState, useEffect } from "react";
 import api from "../../api/axios";
 
 const AdminDashboard = () => {
-  const [overview, setOverview] = useState({
-    total_users: 0,
-    total_projects: 0,
-    total_submissions: 0,
-  });
+  const [totalUsers, setTotalUsers] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [overviewRes, notiRes] = await Promise.all([
+        const [overviewRes, notifRes] = await Promise.all([
           api.get("/admin/overview"),
           api.get("/admin/notifications"),
         ]);
-        setOverview(overviewRes.data);
-        setNotifications(notiRes.data?.data || notiRes.data || []);
+        setTotalUsers(overviewRes.data.total_users || 0);
+        const notifData = notifRes.data?.data || notifRes.data || [];
+        setNotifications(Array.isArray(notifData) ? notifData : []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -28,66 +25,42 @@ const AdminDashboard = () => {
     fetchData();
   }, []);
 
-  if (loading) return <p className="text-gray-500">Loading…</p>;
+  if (loading) return <div className="p-4">Loading…</div>;
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-[#1f67a8]">
-        Super Admin Dashboard
+    <div className="p-6">
+      <h2 className="text-2xl font-bold text-[#1f67a8] mb-6">
+        Super Admin Overview
       </h2>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-lg border p-6 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-500 uppercase">
             Total Users
           </h3>
-          <p className="text-3xl font-bold text-[#1f67a8] mt-2">
-            {overview.total_users}
-          </p>
+          <p className="text-3xl font-bold text-[#1f67a8] mt-2">{totalUsers}</p>
         </div>
         <div className="bg-white rounded-lg border p-6 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-500 uppercase">
-            Total Projects
+            Notifications
           </h3>
           <p className="text-3xl font-bold text-[#1f67a8] mt-2">
-            {overview.total_projects}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg border p-6 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase">
-            Total Submissions
-          </h3>
-          <p className="text-3xl font-bold text-[#1f67a8] mt-2">
-            {overview.total_submissions}
+            {notifications.length}
           </p>
         </div>
       </div>
 
-      {/* Notifications Feed */}
-      {/* Notifications Feed */}
       <div className="bg-white rounded-lg border p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-[#1f67a8]">
-            Recent Notifications
-            {notifications.some((n) => !n.is_read) && (
-              <span className="ml-2 bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">
-                {notifications.filter((n) => !n.is_read).length} unread
-              </span>
-            )}
-          </h3>
-          <button className="text-sm text-blue-600 hover:underline">
-            View All
-          </button>
-        </div>
-
+        <h3 className="font-semibold text-gray-800 mb-4">
+          Recent Notifications
+        </h3>
         {notifications.length === 0 ? (
           <p className="text-gray-500">No notifications.</p>
         ) : (
-          <div className="space-y-3">
+          <ul className="space-y-2">
             {notifications.slice(0, 10).map((n) => (
-              <div
-                key={n.id}
+              <li
+                key={n.notification_id || n.id}
                 className={`p-3 rounded border ${
                   n.is_read ? "bg-gray-50" : "bg-blue-50 border-blue-200"
                 }`}
@@ -95,11 +68,11 @@ const AdminDashboard = () => {
                 <p className="text-sm">{n.message_content}</p>
                 <p className="text-xs text-gray-500 mt-1">
                   {n.user?.full_name || "System"} ·{" "}
-                  {new Date(n.sent_at).toLocaleString()}
+                  {new Date(n.sent_at || n.created_at).toLocaleString()}
                 </p>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </div>

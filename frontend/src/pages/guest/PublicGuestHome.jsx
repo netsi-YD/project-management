@@ -1,6 +1,6 @@
-// src/pages/guest/PublicGuestHome.jsx
 import { useState, useEffect } from "react";
 import axios from "axios";
+
 import Footer from "../../components/shared/Footer";
 import { Link } from "react-router-dom";
 
@@ -9,17 +9,13 @@ export default function PublicGuestHome() {
 
   useEffect(() => {
     axios
-      .get("/api/public-projects")
+      .get("http://localhost:8000/api/public-projects")
       .then((res) => {
-        // Ensure we have an array – some APIs wrap the data
-        const projects = res.data?.data || res.data || [];
-        const safeArray = Array.isArray(projects) ? projects : [];
-        setRecentProjects(safeArray.slice(0, 3));
+        const projects = res.data || [];
+        const safe = Array.isArray(projects) ? projects.slice(0, 3) : [];
+        setRecentProjects(safe);
       })
-      .catch((err) => {
-        console.error("Failed to load public projects", err);
-        setRecentProjects([]); // fallback to empty array on error
-      });
+      .catch(console.error);
   }, []);
 
   return (
@@ -59,7 +55,7 @@ export default function PublicGuestHome() {
               What You Can Do as a Guest
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-xl font-semibold text-gray-800">
                   Browse Public Projects
@@ -73,22 +69,6 @@ export default function PublicGuestHome() {
                   className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-indigo-700"
                 >
                   Browse Now
-                </Link>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold text-gray-800">
-                  Request System Access
-                </h3>
-                <p className="text-gray-600 mt-2">
-                  Need more features? Submit an access request.
-                </p>
-
-                <Link
-                  to="/guest/access-request"
-                  className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-indigo-700"
-                >
-                  Request Access
                 </Link>
               </div>
 
@@ -112,8 +92,7 @@ export default function PublicGuestHome() {
           </div>
         </section>
 
-        {/* Recently Archived Projects – only show if we have a real array with items */}
-        {Array.isArray(recentProjects) && recentProjects.length > 0 && (
+        {recentProjects.length > 0 && (
           <section className="py-16 bg-white">
             <div className="max-w-6xl mx-auto px-6">
               <h2 className="text-3xl font-semibold text-gray-800 mb-8 text-center">

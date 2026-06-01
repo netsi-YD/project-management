@@ -1,7 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import PublicGuestHome from "./pages/guest/PublicGuestHome";
 import GuestProjects from "./pages/guest/GuestProjects";
-import AccessRequestForm from "./pages/guest/AccessRequestForm";
 import Login from "./components/Login";
 import UploadProposal from "./pages/student/UploadProposal";
 import StudentLayout from "./components/layout/StudentLayout";
@@ -20,7 +19,6 @@ import Submissions from "./pages/staff/Submissions";
 import Reviews from "./pages/staff/Reviews";
 import Messages from "./pages/staff/Messages";
 import EvaluateProjects from "./pages/staff/EvaluateProjects";
-import SimilarityReports from "./pages/staff/SimilarityReports";
 import FinalGrades from "./pages/staff/FinalGrades";
 import PendingProposals from "./pages/staff/PendingProposals";
 import AssignAdvisors from "./pages/staff/AssignAdvisors";
@@ -58,7 +56,6 @@ const router = createBrowserRouter([
   { path: "/", element: <PublicGuestHome /> },
   { path: "/login", element: <Login /> },
   { path: "/guest/projects", element: <GuestProjects /> },
-  { path: "/guest/access-request", element: <AccessRequestForm /> },
 
   {
     path: "/student",
@@ -92,7 +89,6 @@ const router = createBrowserRouter([
       { path: "submissions", element: <Submissions /> },
       { path: "reviews", element: <Reviews /> },
       { path: "messages", element: <Messages /> },
-      { path: "similarity", element: <SimilarityReports /> },
       { path: "final-grades", element: <FinalGrades /> },
       { path: "pending-proposals", element: <PendingProposals /> },
       { path: "assign-advisors", element: <AssignAdvisors /> },
@@ -124,6 +120,7 @@ const router = createBrowserRouter([
         path: "advisor/projects/:projectId",
         element: <AdvisorProjectDetail />,
       },
+      { path: "similarity", element: <SimilarityCheck /> },
       { path: "activity-logs", element: <ActivityLogs /> },
 
       {

@@ -135,31 +135,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/comments', [CommentController::class, 'store']);
     Route::get('/comments/{project_id}', [CommentController::class, 'index']);
 
-   Route::get('/advisors', function (Request $request) {
-    $query = \App\Models\Advisor::with('user:user_id,full_name,department')
-        ->select('advisor_id', 'user_id');
-
-    // If a project_id is given, only show advisors from the same department as the student
-    if ($request->has('project_id')) {
-        $project = \App\Models\Project::find($request->project_id);
-        if ($project && $project->student) {
-            $department = $project->student->user->department;
-            if ($department) {
-                $query->whereHas('user', fn($q) => $q->where('department', $department));
-            }
-        }
-    }
-
-    $advisors = $query->get()->map(function ($advisor) {
-        return [
-            'advisor_id' => $advisor->advisor_id,
-            'full_name'  => $advisor->user->full_name ?? 'Unknown',
-        ];
-    });
-
+    Route::get('/advisors', function () {
+    $advisors = \App\Models\Advisor::with('user:user_id,full_name')
+        ->select('advisor_id', 'user_id')
+        ->get()
+        ->map(function ($advisor) {
+            return [
+                'advisor_id' => $advisor->advisor_id,
+                'full_name'  => $advisor->user->full_name ?? 'Unknown',
+            ];
+        });
     return response()->json($advisors);
 });
-    Route::get('/submissions', function (Request $request) {
+
+     Route::get('/submissions', function (Request $request) {
         $submissions = Submission::where('student_id', $request->user()->user_id)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -237,7 +226,6 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json(['error' => 'No text could be extracted from the file.'], 400);
     }
 
-    // Previous files (with safe extraction and filtering)
     $previousFiles = Submission::where('student_id', $request->user()->user_id)
         ->get()
         ->filter(function ($sub) {
@@ -388,6 +376,7 @@ Route::middleware('auth:sanctum')->group(function () {
                         'members'      => $project->group->members->map(function ($member) {
                             return [
                                 'student_id' => $member->student_id,
+                                'user_id'    => $member->user_id,
                                 'full_name'  => $member->user->full_name ?? 'Unknown',
                             ];
                         }),
@@ -558,8 +547,7 @@ Route::middleware('auth:sanctum')->group(function () {
             \App\Models\Notification::create([
                 'user_id'          => $advisor->user_id,
                 'message_type'     => 'advisor_acceptance_request',
-                'message_content'  => "You have been assigned to supervise project \"{$project->title}\". Please accept or reject.",
-                'is_read'          => false,
+'message_content'  => "You have been assigned to supervise project \"{$project->title}\".",                'is_read'          => false,
                 'sent_at'          => now(),
             ]);
         }
@@ -741,31 +729,38 @@ Route::middleware('auth:sanctum')->group(function () {
     })->whereNumber('project');
 
     Route::post('/coordinator/assign-examiner', function (Request $request) {
-        $roles = $request->user()->roles()->pluck('role_name');
-        if (!$roles->contains(fn($r) => strtolower($r) === 'project_coordinator')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-        $request->validate([
-            'project_id' => 'required|integer|exists:project,project_id',
-            'examiner_id' => 'required|integer|exists:examiners,examiner_id',
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains(fn($r) => strtolower($r) === 'project_coordinator')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    $request->validate([
+        'project_id'  => 'required|integer|exists:project,project_id',
+        'examiner_ids' => 'required|array|size:2',
+        'examiner_ids.*' => 'integer|exists:examiners,examiner_id',
+    ]);
+
+    if (count(array_unique($request->examiner_ids)) < 2) {
+        return response()->json(['message' => 'The two examiners must be different.'], 422);
+    }
+
+    // Remove existing assignments for this project then insert the 2
+    DB::table('examiner_project')->where('project_id', $request->project_id)->delete();
+
+    foreach ($request->examiner_ids as $examinerId) {
+        DB::table('examiner_project')->insert([
+            'examiner_id' => $examinerId,
+            'project_id'  => $request->project_id,
         ]);
-        $exists = DB::table('examiner_project')
-            ->where('examiner_id', $request->examiner_id)
-            ->where('project_id', $request->project_id)
-            ->exists();
-        if (!$exists) {
-            DB::table('examiner_project')->insert([
-                'examiner_id' => $request->examiner_id,
-                'project_id'  => $request->project_id,
-            ]);
-        }
-        ActivityLog::create([
-            'user_id'    => $request->user()->user_id,
-            'action'     => "Assigned examiner (ID {$request->examiner_id}) to project ID {$request->project_id}",
-            'ip_address' => $request->ip(),
-        ]);
-        return response()->json(['message' => 'Examiner assigned to project']);
-    });
+    }
+
+    ActivityLog::create([
+        'user_id'    => $request->user()->user_id,
+        'action'     => "Assigned 2 examiners to project ID {$request->project_id}",
+        'ip_address' => $request->ip(),
+    ]);
+
+    return response()->json(['message' => 'Two examiners assigned successfully']);
+});
 
     Route::delete('/coordinator/remove-examiner', function (Request $request) {
         $roles = $request->user()->roles()->pluck('role_name');
@@ -987,13 +982,16 @@ Route::middleware('auth:sanctum')->group(function () {
     return response()->json($projects);
 });
     
-    Route::post('/evaluation/submit', function (Request $request) {
+Route::post('/evaluation/submit', function (Request $request) {
     $user = $request->user();
+    \Log::info('Eval request received', $request->all());
+
     $roles = $user->roles()->pluck('role_name')->map(fn($r) => strtolower($r));
     if (!$roles->contains('advisor') && !$roles->contains('examiner')) {
         return response()->json(['message' => 'Unauthorized – Advisor or Examiner role required'], 403);
     }
     if (!$request->student_id && $request->has('project_id')) {
+        \Log::warning('student_id missing in evaluation request');
         return response()->json(['message' => 'student_id is required for evaluation'], 422);
     }
     $request->validate([
@@ -1029,46 +1027,33 @@ Route::middleware('auth:sanctum')->group(function () {
         $totalMarks = array_sum(array_values($request->detailed_marks));
     }
 
-    // ---- PERMANENT FIX: reuse row with NULL student_id if exists ----
-    $existing = \App\Models\Evaluation::where('project_id', $request->project_id)
-        ->where('evaluator_id', $user->user_id)
-        ->where('evaluator_type', $request->evaluator_type)
-        ->where(function ($q) use ($request) {
-            $q->where('student_id', $request->student_id)
-              ->orWhereNull('student_id');
-        })
-        ->first();
+    // Remove any previous evaluation for this exact (project, evaluator, student)
+    \App\Models\Evaluation::where([
+        'project_id'    => $request->project_id,
+        'evaluator_id'  => $user->user_id,
+        'evaluator_type'=> $request->evaluator_type,
+        'student_id'    => $request->student_id,
+    ])->delete();
 
-    if ($existing) {
-        $existing->update([
-            'student_id'          => $request->student_id,
-            'detailed_marks'      => $request->detailed_marks ?? [],
-            'total_marks'          => $totalMarks,
-            'student_comments'     => $request->student_comments,
-            'coordinator_remarks'  => $request->coordinator_remarks,
-            'status'               => $status,
-        ]);
-        $evaluation = $existing;
-    } else {
-        $evaluation = \App\Models\Evaluation::create([
-            'project_id'          => $request->project_id,
-            'student_id'          => $request->student_id,
-            'evaluator_id'        => $user->user_id,
-            'evaluator_type'      => $request->evaluator_type,
-            'detailed_marks'      => $request->detailed_marks ?? [],
-            'total_marks'          => $totalMarks,
-            'student_comments'     => $request->student_comments,
-            'coordinator_remarks'  => $request->coordinator_remarks,
-            'status'               => $status,
-        ]);
-    }
-    // ----------------------------------------------------------------
+    // Create a fresh evaluation
+    $evaluation = \App\Models\Evaluation::create([
+        'project_id'          => $request->project_id,
+        'student_id'          => $request->student_id,
+        'evaluator_id'        => $user->user_id,
+        'evaluator_type'      => $request->evaluator_type,
+        'detailed_marks'      => $request->detailed_marks ?? [],
+        'total_marks'          => $totalMarks,
+        'student_comments'     => $request->student_comments,
+        'coordinator_remarks'  => $request->coordinator_remarks,
+        'status'               => $status,
+    ]);
 
-    $notifyUserId = $request->student_id ?? optional(\App\Models\Project::find($request->project_id))->student_id;
+    \Log::info('Evaluation created', ['id' => $evaluation->id, 'student_id' => $evaluation->student_id]);
 
+    // Notify the evaluated student
+    $notifyUserId = $request->student_id;
     if ($notifyUserId && in_array($status, ['review', 'submitted'])) {
         $project = \App\Models\Project::find($request->project_id);
-        $studentName = $request->student_id ? \App\Models\User::find($request->student_id)->full_name : 'you';
         $msg = $status === 'review'
             ? "Your advisor left feedback for project \"{$project->title}\"."
             : "Your evaluation for project \"{$project->title}\" has been completed. Check your marks.";
@@ -1081,6 +1066,21 @@ Route::middleware('auth:sanctum')->group(function () {
         ]);
     }
 
+    // Notify all coordinators
+    $project = \App\Models\Project::find($request->project_id);
+    if ($project) {
+        $coordinators = \App\Models\User::whereHas('roles', fn($q) => $q->where('role_name', 'Project_Coordinator'))->get();
+        foreach ($coordinators as $coordinator) {
+            \App\Models\Notification::create([
+                'user_id'         => $coordinator->user_id,
+                'message_type'    => 'evaluation',
+                'message_content' => "New evaluation submitted for project \"{$project->title}\" by {$request->evaluator_type}.",
+                'is_read'         => false,
+                'sent_at'         => now(),
+            ]);
+        }
+    }
+
     ActivityLog::create([
         'user_id'    => $user->user_id,
         'action'     => "Submitted " . $request->evaluator_type . " evaluation for project ID " . $request->project_id . ($request->student_id ? " (student ID {$request->student_id})" : ""),
@@ -1088,7 +1088,7 @@ Route::middleware('auth:sanctum')->group(function () {
     ]);
 
     return response()->json(['message' => 'Evaluation saved', 'evaluation' => $evaluation]);
-});
+});    
 
 Route::get('/coordinator/evaluations/{project_id}', function (Request $request, $project_id) {
     $roles = $request->user()->roles()->pluck('role_name')->map(fn($r) => strtolower($r));
@@ -1096,60 +1096,81 @@ Route::get('/coordinator/evaluations/{project_id}', function (Request $request, 
         return response()->json(['message' => 'Unauthorized'], 403);
     }
 
-    // Load project with group members and their user info
     $project = \App\Models\Project::with(['group.members.user:user_id,full_name'])->find($project_id);
     if (!$project) {
         return response()->json(['message' => 'Project not found'], 404);
     }
 
-    // Get all evaluations for this project
     $evaluations = \App\Models\Evaluation::where('project_id', $project_id)->get();
 
-    // Group evaluations by student_id
-    $evalByStudent = $evaluations->groupBy('student_id');
-
-    // Determine the list of students to show (group members or project owner)
     $members = $project->group ? $project->group->members : collect();
     if ($members->isEmpty() && $project->student_id) {
-        $members = collect([
-            (object)[
-                'user_id' => $project->student_id,
-                'user' => \App\Models\User::find($project->student_id),
-            ]
-        ]);
+        $members = collect([(object)[
+            'user_id' => $project->student_id,
+            'user'    => \App\Models\User::find($project->student_id),
+        ]]);
     }
 
-    $result = $members->map(function ($member) use ($evalByStudent) {
-        $studentId = $member->user_id;
-        $studentEvals = $evalByStudent->get($studentId, collect());
+    $result = $members->map(function ($member) use ($evaluations) {
+        $studentId   = $member->user_id;
+        $studentEvals = $evaluations->where('student_id', $studentId);
 
-        $advisorEval = $studentEvals->where('evaluator_type', 'advisor')->first();
-        $examinerEval = $studentEvals->where('evaluator_type', 'examiner')->first();
+        $advisorEval   = $studentEvals->where('evaluator_type', 'advisor')->first();
+        $examinerEvals = $studentEvals->where('evaluator_type', 'examiner')->values();
 
-        $studentName = $member->user->full_name ?? 'Unknown';
-        $advisorName = $advisorEval ? (\App\Models\User::find($advisorEval->evaluator_id)->full_name ?? 'N/A') : null;
-        $examinerName = $examinerEval ? (\App\Models\User::find($examinerEval->evaluator_id)->full_name ?? 'N/A') : null;
+        $examiner1 = $examinerEvals->get(0);
+        $examiner2 = $examinerEvals->get(1);
+
+        $getName = fn($eval) => $eval
+            ? (\App\Models\User::find($eval->evaluator_id)->full_name ?? 'Unknown')
+            : null;
+
+        // Average only when both submitted
+        $examinerAvg = null;
+        if (
+            $examiner1 && $examiner2 &&
+            $examiner1->status === 'submitted' &&
+            $examiner2->status === 'submitted' &&
+            is_numeric($examiner1->total_marks) &&
+            is_numeric($examiner2->total_marks)
+        ) {
+            $examinerAvg = round(($examiner1->total_marks + $examiner2->total_marks) / 2, 2);
+        }
+
+        $advisorMarks = $advisorEval?->total_marks;
+        $total = (is_numeric($advisorMarks) && is_numeric($examinerAvg))
+            ? round($advisorMarks + $examinerAvg, 2)
+            : null;
 
         return [
             'student_id'   => $studentId,
-            'student_name' => $studentName,
-            'advisor'      => $advisorEval ? [
+            'student_name' => $member->user->full_name ?? 'Unknown',
+            'advisor' => $advisorEval ? [
                 'evaluation_id'  => $advisorEval->id,
-                'evaluator_name' => $advisorName,
+                'evaluator_name' => $getName($advisorEval),
                 'total_marks'    => $advisorEval->total_marks,
                 'status'         => $advisorEval->status,
             ] : null,
-            'examiner'     => $examinerEval ? [
-                'evaluation_id'  => $examinerEval->id,
-                'evaluator_name' => $examinerName,
-                'total_marks'    => $examinerEval->total_marks,
-                'status'         => $examinerEval->status,
+            'examiner1' => $examiner1 ? [
+                'evaluation_id'  => $examiner1->id,
+                'evaluator_name' => $getName($examiner1),
+                'total_marks'    => $examiner1->total_marks,
+                'status'         => $examiner1->status,
             ] : null,
+            'examiner2' => $examiner2 ? [
+                'evaluation_id'  => $examiner2->id,
+                'evaluator_name' => $getName($examiner2),
+                'total_marks'    => $examiner2->total_marks,
+                'status'         => $examiner2->status,
+            ] : null,
+            'examiner_avg' => $examinerAvg,
+            'total'        => $total,
         ];
     })->values();
 
     return response()->json($result);
 });
+
     Route::put('/coordinator/forward-evaluation/{evaluation_id}', function (Request $request, $evaluation_id) {
     $roles = $request->user()->roles()->pluck('role_name')->map(fn($r) => strtolower($r));
     if (!$roles->contains('project_coordinator')) {
@@ -1208,25 +1229,40 @@ Route::get('/dept-head/own-notifications', function (Request $request) {
                 ->get()
         );
     });
+Route::get('/coordinator/projects-for-examiner-assignment', function (Request $request) {
+    $user = $request->user();
+    if (!$user) return response()->json(['message' => 'Unauthenticated.'], 401);
 
-    Route::get('/coordinator/projects-for-examiner-assignment', function (Request $request) {
-        $user = $request->user();
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
-        $roles = $user->roles()->pluck('role_name');
-        if (!$roles->contains(fn($r) => strtolower($r) === 'project_coordinator')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-        return response()->json(
-            \App\Models\Project::where('status', 'approved')
-                ->whereNotNull('advisor_id')
-                ->where('is_archived', false)
-                ->with('student:user_id,full_name')
-                ->get()
-        );
-    });
+    $roles = $user->roles()->pluck('role_name');
+    if (!$roles->contains(fn($r) => strtolower($r) === 'project_coordinator')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
 
+    $projects = \App\Models\Project::where('status', 'approved')
+        ->where('is_archived', false)                          // ← removed whereNotNull('advisor_id')
+        ->with('student:user_id,full_name')
+        ->get()
+        ->map(function ($project) {
+            $assignedExaminers = DB::table('examiner_project')
+                ->join('examiners', 'examiner_project.examiner_id', '=', 'examiners.examiner_id')
+                ->join('user', 'examiners.user_id', '=', 'user.user_id')
+                ->where('examiner_project.project_id', $project->project_id)
+                ->select('examiners.examiner_id', 'user.full_name')
+                ->get();
+
+            return [
+                'project_id'         => $project->project_id,
+                'title'              => $project->title,
+                'student'            => $project->student,
+                'has_advisor'        => !is_null($project->advisor_id),  // ← new flag
+                'assigned_examiners' => $assignedExaminers,
+                'fully_assigned'     => $assignedExaminers->count() >= 2,
+            ];
+        });
+
+    return response()->json($projects);
+});
+    
     Route::middleware(['auth:sanctum'])->group(function () {
         $isSuperAdmin = function (Request $request) {
             $roles = $request->user()->roles()->pluck('role_name');
@@ -1580,148 +1616,205 @@ Route::get('/admin/backups/{filename}', function ($filename, Request $request) u
     return response()->download($path);
 })->where('filename', '.*');
 
-        Route::post('/admin/import-users', function (Request $request) use ($isSuperAdmin) {
-            if (!$isSuperAdmin($request)) return response()->json(['message' => 'Unauthorized'], 403);
+       Route::post('/admin/import-users', function (Request $request) use ($isSuperAdmin) {
+    if (!$isSuperAdmin($request)) return response()->json(['message' => 'Unauthorized'], 403);
 
-            $request->validate([
-    'file' => 'required|file|mimes:csv,xlsx,xls',
-            ]);
+    $request->validate([
+        'file' => 'required|file|mimes:csv,txt',
+    ]);
 
-            $file = $request->file('file');
-            $handle = fopen($file->getRealPath(), 'r');
+    $file = $request->file('file');
+    $handle = fopen($file->getRealPath(), 'r');
 
-            $imported = 0;
-            $errors = [];
-            $row = 1;
+    // Detect delimiter from the first line
+    $firstLine = fgets($handle);
+    rewind($handle);
+    $delimiter = (substr_count($firstLine, ';') > substr_count($firstLine, ',')) ? ';' : ',';
 
-            while (($data = fgetcsv($handle, 1000, ',')) !== false) {
-                $row++;
-                if ($row === 2) continue;
+    $imported = 0;
+    $errors = [];
+    $row = 1;
 
-                if (count($data) < 6) {
-                    $errors[] = "Row $row: insufficient columns";
+    while (($data = fgetcsv($handle, 1000, $delimiter)) !== false) {
+        $row++;
+        if ($row === 2) continue; // skip header
+
+        if (count($data) < 8) {
+            $errors[] = "Row $row: insufficient columns (need 8)";
+            continue;
+        }
+
+        [$full_name, $email, $phone_number, $gender, $department, $role, $year_of_study, $campus_id] = array_pad($data, 8, null);
+
+        if (empty($full_name) || empty($email)) {
+            $errors[] = "Row $row: name and email required";
+            continue;
+        }
+
+        if (\App\Models\User::where('email', $email)->exists()) {
+            $errors[] = "Row $row: $email already exists";
+            continue;
+        }
+
+        try {
+            $userData = [
+                'full_name'      => $full_name,
+                'email'          => $email,
+                'password'       => bcrypt('password123'),
+                'phone_number'   => $phone_number,
+                'gender'         => $gender,
+                'department'     => $department,
+                'year_of_study'  => ($role === 'Student') ? $year_of_study : null,
+                'status'         => 'active',
+            ];
+
+            $user = \App\Models\User::create($userData);
+
+            $roleModel = \App\Models\Role::where('role_name', $role)->first();
+            if (!$roleModel) {
+                $errors[] = "Row $row: unknown role '$role'";
+                continue;
+            }
+            $user->roles()->attach($roleModel->role_id);
+
+            if ($role === 'Student') {
+                if (empty($campus_id)) {
+                    $errors[] = "Row $row: campus_id is required for students";
                     continue;
                 }
-
-                [$full_name, $email, $phone_number, $gender, $department, $role, $year_of_study] = array_pad($data, 7, null);
-
-                if (empty($full_name) || empty($email)) {
-                    $errors[] = "Row $row: name and email required";
-                    continue;
-                }
-
-                if (\App\Models\User::where('email', $email)->exists()) {
-                    $errors[] = "Row $row: $email already exists";
-                    continue;
-                }
-
-                $userData = [
-                    'full_name'      => $full_name,
-                    'email'          => $email,
-                    'password'       => bcrypt('password123'),
-                    'phone_number'   => $phone_number,
-                    'gender'         => $gender,
-                    'department'     => $department,
-                    'year_of_study'  => ($role === 'Student') ? $year_of_study : null,
-                    'status'         => 'active',
-                ];
-
-                $user = \App\Models\User::create($userData);
-
-                $roleModel = \App\Models\Role::where('role_name', $role)->first();
-                if ($roleModel) {
-                    $user->roles()->attach($roleModel->role_id);
-                } else {
-                    $errors[] = "Row $row: unknown role '$role'";
-                }
-
-                $imported++;
+                \App\Models\Student::create([
+                    'user_id'          => $user->user_id,
+                    'student_campus_id'=> $campus_id,
+                    'major'            => $department,
+                    'enrollment_year'  => $year_of_study,
+                    'unit_id'          => 1,
+                    'section'          => 'A',
+                    'enrollement_status'=> 'active',
+                ]);
+            } elseif ($role === 'Advisor') {
+                \App\Models\Advisor::create([
+                    'user_id'          => $user->user_id,
+                    'unit_id'          => 1,
+                    'department_id'    => 1,
+                    'specialization'   => $department,
+                    'education_level'  => 'PHD',
+                    'office_room'      => 'Room ' . rand(100, 500),
+                    'project_group_id' => 0,
+                    'current_advise_count' => 0,
+                ]);
+            } elseif ($role === 'Examiner') {
+                \App\Models\Examiner::create([
+                    'user_id'            => $user->user_id,
+                    'unit_id'            => 1,
+                    'expertise_area'     => $department,
+                    'examiner_role'      => 'internal',
+                    'assigned_departments'=> $department,
+                    'education_level'    => 'PHD',
+                    'project_group_id'   => 0,
+                ]);
             }
 
-            fclose($handle);
-            ActivityLog::create([
-                'user_id'    => $request->user()->user_id,
-                'action'     => "Imported $imported users via CSV",
-                'ip_address' => $request->ip(),
-            ]);
+            $imported++;
+        } catch (\Exception $e) {
+            $errors[] = "Row $row: " . $e->getMessage();
+        }
+    }
 
-            return response()->json([
-                'message' => "$imported users imported successfully.",
-                'errors'  => $errors,
-            ]);
-        });
+    fclose($handle);
+    ActivityLog::create([
+        'user_id'    => $request->user()->user_id,
+        'action'     => "Imported $imported users via CSV",
+        'ip_address' => $request->ip(),
+    ]);
+
+    return response()->json([
+        'message' => "$imported users imported successfully.",
+        'errors'  => $errors,
+    ]);
+});
     });
 
     Route::post('/groups', function (Request $request) {
-        $user = $request->user();
+    $user = $request->user();
 
-        $alreadyInGroup = \App\Models\ProjectGroup::whereHas('members', function ($q) use ($user) {
-            $q->where('students.user_id', $user->user_id);
+    $alreadyInGroup = \App\Models\ProjectGroup::whereHas('members', function ($q) use ($user) {
+        $q->where('students.user_id', $user->user_id);
+    })->exists();
+
+    if ($alreadyInGroup) {
+        return response()->json(['message' => 'You are already in a group.'], 422);
+    }
+
+    $request->validate([
+        'group_number' => 'nullable|string',
+        'members'      => 'required|array',
+        'members.*'    => 'string',
+    ]);
+
+    $studentIds = [];
+    $memberUserIds = [$user->user_id];
+
+    foreach ($request->members as $input) {
+        if (is_numeric($input)) {
+            $student = \App\Models\Student::where('user_id', (int)$input)->first();
+        } else {
+            $student = \App\Models\Student::where('student_campus_id', $input)->first();
+        }
+
+        if (!$student) {
+            return response()->json(['message' => "Student not found: '$input'"], 422);
+        }
+
+        $alreadyMember = \App\Models\ProjectGroup::whereHas('members', function ($q) use ($student) {
+            $q->where('group_members.student_id', $student->student_id);
         })->exists();
 
-        if ($alreadyInGroup) {
-            return response()->json(['message' => 'You are already in a group.'], 422);
+        if ($alreadyMember) {
+            return response()->json([
+                'message' => "Student {$input} is already in another group."
+            ], 422);
         }
 
-        $request->validate([
-            'group_number' => 'nullable|string',
-            'members'      => 'required|array',
-            'members.*'    => 'string',
+        $studentIds[] = $student->student_id;
+        if ($student->user_id !== $user->user_id) {
+            $memberUserIds[] = $student->user_id;
+        }
+    }
+
+    // ✓ FIX: get the creator's own student record and add them to the group
+    $creatorStudent = \App\Models\Student::where('user_id', $user->user_id)->first();
+
+    if (!$creatorStudent) {
+        return response()->json(['message' => 'Your student profile was not found.'], 422);
+    }
+
+    if (!in_array($creatorStudent->student_id, $studentIds)) {
+        $studentIds[] = $creatorStudent->student_id;
+    }
+
+    $group = \App\Models\ProjectGroup::create([
+        'project_id'   => null,
+        'group_number' => $request->group_number,
+        'formed_date'  => now(),
+    ]);
+
+    $group->members()->attach($studentIds);
+
+    foreach ($memberUserIds as $uid) {
+        \App\Models\Notification::create([
+            'user_id'         => $uid,
+            'message_type'    => 'group',
+            'message_content' => "You have been added to group {$group->group_number}.",
+            'is_read'         => false,
+            'sent_at'         => now(),
         ]);
+    }
 
-        $studentIds = [];
-        $memberUserIds = [$user->user_id];
-
-        foreach ($request->members as $input) {
-            if (is_numeric($input)) {
-                $student = \App\Models\Student::where('user_id', (int)$input)->first();
-            } else {
-                $student = \App\Models\Student::where('student_campus_id', $input)->first();
-            }
-
-            if (!$student) {
-                return response()->json(['message' => "Student not found: '$input'"], 422);
-            }
-
-            $alreadyMember = \App\Models\ProjectGroup::whereHas('members', function ($q) use ($student) {
-                $q->where('group_members.student_id', $student->student_id);
-            })->exists();
-
-            if ($alreadyMember) {
-                return response()->json([
-                    'message' => "Student {$input} is already in another group."
-                ], 422);
-            }
-
-            $studentIds[] = $student->student_id;
-            if ($student->user_id !== $user->user_id) {
-                $memberUserIds[] = $student->user_id;
-            }
-        }
-
-        $group = \App\Models\ProjectGroup::create([
-            'project_id'   => null,
-            'group_number' => $request->group_number,
-            'formed_date'  => now(),
-        ]);
-
-        $group->members()->attach($studentIds);
-
-        foreach ($memberUserIds as $uid) {
-            \App\Models\Notification::create([
-                'user_id'         => $uid,
-                'message_type'    => 'group',
-                'message_content' => "You have been added to group {$group->group_number}.",
-                'is_read'         => false,
-                'sent_at'         => now(),
-            ]);
-        }
-
-        return response()->json(
-            $group->load('members.user:user_id,full_name'),
-            201
-        );
-    });
+    return response()->json(
+        $group->load('members.user:user_id,full_name'),
+        201
+    );
+});
 
     Route::get('/groups', function (Request $request) {
         $user = $request->user();
@@ -1888,17 +1981,16 @@ Route::get('/admin/backups/{filename}', function ($filename, Request $request) u
     });
 
     Route::get('/messages/direct/{user_id}', function ($userId, Request $request) {
-        $myId = $request->user()->user_id;
-        $messages = \App\Models\Message::where(function ($q) use ($myId, $userId) {
-                $q->where('sender_id', $myId)->where('receiver_id', $userId);
-            })->orWhere(function ($q) use ($myId, $userId) {
-                $q->where('sender_id', $userId)->where('receiver_id', $myId);
-            })->with('sender:user_id,full_name')
-            ->orderBy('created_at')
-            ->get();
-        return response()->json($messages);
-    });
-
+    $myId = $request->user()->user_id;
+    $messages = \App\Models\Message::where(function ($q) use ($myId, $userId) {
+            $q->where('sender_id', $myId)->where('receiver_id', $userId);
+        })->orWhere(function ($q) use ($myId, $userId) {
+            $q->where('sender_id', $userId)->where('receiver_id', $myId);
+        })->with('sender:user_id,full_name')
+        ->orderBy('created_at')
+        ->get();
+    return response()->json($messages);
+});
     Route::get('/student/contacts', function (Request $request) {
     $user = $request->user();
     $contacts = [];
@@ -1977,6 +2069,27 @@ Route::get('/admin/backups/{filename}', function ($filename, Request $request) u
     return response()->json($projects);
 });
 
+Route::get('/dept-head/stats', function (Request $request) {
+    $roles = $request->user()->roles()->pluck('role_name');
+    if (!$roles->contains('Department_Head')) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    $department = $request->user()->department;
+
+    $totalProjects = \App\Models\Project::whereHas('student', fn($q) => $q->where('department', $department))->count();
+    $totalStudents = \App\Models\User::where('department', $department)
+        ->whereHas('roles', fn($q) => $q->where('role_name', 'Student'))
+        ->count();
+    $archivedProjects = \App\Models\Project::where('is_archived', true)
+        ->whereHas('student', fn($q) => $q->where('department', $department))
+        ->count();
+
+    return response()->json([
+        'total_projects'   => $totalProjects,
+        'total_students'   => $totalStudents,
+        'archived_projects'=> $archivedProjects,
+    ]);
+});
    Route::get('/dept-head/projects/{project}', function (Request $request, $project) {
     $roles = $request->user()->roles()->pluck('role_name');
     if (!$roles->contains('Department_Head')) {
