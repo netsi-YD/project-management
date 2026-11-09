@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import api from "../../api/axios";
 
 const StudentMessages = () => {
   const [tab, setTab] = useState("groups");
@@ -13,27 +14,19 @@ const StudentMessages = () => {
   const [directMessages, setDirectMessages] = useState([]);
   const [newDirectMsg, setNewDirectMsg] = useState("");
 
-  const authHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-    Accept: "application/json",
-    "Content-Type": "application/json",
-  });
-
   // Fetch groups
   useEffect(() => {
-    fetch("http://localhost:8000/api/groups", { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((data) => setGroups(data || []))
+    api
+      .get("/groups")
+      .then(({ data }) => setGroups(data || []))
       .catch(console.error);
   }, []);
 
   // Fetch contacts
   useEffect(() => {
-    fetch("http://localhost:8000/api/student/contacts", {
-      headers: authHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => {
+    api
+      .get("/student/contacts")
+      .then(({ data }) => {
         // Ensure contacts is always an array
         if (Array.isArray(data)) {
           setContacts(data);
@@ -51,31 +44,23 @@ const StudentMessages = () => {
   // Group chat handlers
   const openGroupChat = (group) => {
     setSelectedGroup(group);
-    fetch(`http://localhost:8000/api/groups/${group.group_id}/messages`, {
-      headers: authHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => setGroupMessages(Array.isArray(data) ? data : []))
+    api
+      .get(`/groups/${group.group_id}/messages`)
+      .then(({ data }) => setGroupMessages(Array.isArray(data) ? data : []))
       .catch(() => setGroupMessages([]));
   };
 
   const sendGroupMessage = async () => {
     if (!newGroupMsg.trim() || !selectedGroup) return;
     try {
-      await fetch("http://localhost:8000/api/messages", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          group_id: selectedGroup.group_id,
-          message: newGroupMsg,
-        }),
+      await api.post("/messages", {
+        group_id: selectedGroup.group_id,
+        message: newGroupMsg,
       });
       setNewGroupMsg("");
-      const res = await fetch(
-        `http://localhost:8000/api/groups/${selectedGroup.group_id}/messages`,
-        { headers: authHeaders() },
+      const { data } = await api.get(
+        `/groups/${selectedGroup.group_id}/messages`,
       );
-      const data = await res.json();
       setGroupMessages(Array.isArray(data) ? data : []);
     } catch {
       alert("Failed to send");
@@ -85,31 +70,23 @@ const StudentMessages = () => {
   // Direct message handlers
   const openDirectChat = (contact) => {
     setSelectedContact(contact);
-    fetch(`http://localhost:8000/api/messages/direct/${contact.user_id}`, {
-      headers: authHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => setDirectMessages(Array.isArray(data) ? data : []))
+    api
+      .get(`/messages/direct/${contact.user_id}`)
+      .then(({ data }) => setDirectMessages(Array.isArray(data) ? data : []))
       .catch(() => setDirectMessages([]));
   };
 
   const sendDirectMessage = async () => {
     if (!newDirectMsg.trim() || !selectedContact) return;
     try {
-      await fetch("http://localhost:8000/api/messages", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          receiver_id: selectedContact.user_id,
-          message: newDirectMsg,
-        }),
+      await api.post("/messages", {
+        receiver_id: selectedContact.user_id,
+        message: newDirectMsg,
       });
       setNewDirectMsg("");
-      const res = await fetch(
-        `http://localhost:8000/api/messages/direct/${selectedContact.user_id}`,
-        { headers: authHeaders() },
+      const { data } = await api.get(
+        `/messages/direct/${selectedContact.user_id}`,
       );
-      const data = await res.json();
       setDirectMessages(Array.isArray(data) ? data : []);
     } catch {
       alert("Failed to send");
