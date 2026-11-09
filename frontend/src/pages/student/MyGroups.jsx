@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import api from "../../api/axios";
 
 const MyGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -18,28 +19,22 @@ const MyGroups = () => {
   const [dmMessages, setDmMessages] = useState([]);
   const [dmNewMsg, setDmNewMsg] = useState("");
 
-  const authHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-    Accept: "application/json",
-    "Content-Type": "application/json",
-  });
-
   const fetchGroups = () => {
-    fetch("http://localhost:8000/api/groups", { headers: authHeaders() })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data) => setGroups(data))
-      .catch((err) => setError("Failed to load groups: " + err.message));
+    api
+      .get("/groups")
+      .then((r) => setGroups(r.data))
+      .catch((err) =>
+        setError(
+          "Failed to load groups: " +
+            (err.response?.data?.message || err.message),
+        ),
+      );
   };
 
   const fetchContacts = () => {
-    fetch("http://localhost:8000/api/student/contacts", {
-      headers: authHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => setContacts(data))
+    api
+      .get("/student/contacts")
+      .then((r) => setContacts(r.data))
       .catch(console.error);
   };
 
@@ -72,21 +67,18 @@ const MyGroups = () => {
     }
 
     try {
-      const res = await fetch("http://localhost:8000/api/groups", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          group_number: form.group_number,
-          members: ids,
-        }),
+      await api.post("/groups", {
+        group_number: form.group_number,
+        members: ids,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
       setFormMsg("Group created!");
       setForm({ group_number: "", members: "" });
       fetchGroups();
     } catch (err) {
-      setFormMsg("Failed to create group: " + err.message);
+      setFormMsg(
+        "Failed to create group: " +
+          (err.response?.data?.message || err.message),
+      );
     }
   };
 
@@ -95,31 +87,23 @@ const MyGroups = () => {
     setDmUser(null);
     setAddMemberInput("");
     setAddMemberMsg("");
-    fetch(`http://localhost:8000/api/groups/${group.group_id}/messages`, {
-      headers: authHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => setMessages(data))
+    api
+      .get(`/groups/${group.group_id}/messages`)
+      .then((r) => setMessages(r.data))
       .catch(() => setMessages([]));
   };
 
   const sendMessage = async () => {
     if (!newMsg.trim() || !selectedGroup) return;
     try {
-      await fetch("http://localhost:8000/api/messages", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          group_id: selectedGroup.group_id,
-          message: newMsg,
-        }),
+      await api.post("/messages", {
+        group_id: selectedGroup.group_id,
+        message: newMsg,
       });
       setNewMsg("");
-      const res = await fetch(
-        `http://localhost:8000/api/groups/${selectedGroup.group_id}/messages`,
-        { headers: authHeaders() },
+      const { data } = await api.get(
+        `/groups/${selectedGroup.group_id}/messages`,
       );
-      const data = await res.json();
       setMessages(data);
     } catch {
       alert("Failed to send message");
@@ -129,22 +113,17 @@ const MyGroups = () => {
   const handleAddMember = async () => {
     if (!addMemberInput.trim()) return;
     try {
-      const res = await fetch(
-        `http://localhost:8000/api/groups/${selectedGroup.group_id}/add-member`,
-        {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify({ student_identifier: addMemberInput.trim() }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      await api.post(`/groups/${selectedGroup.group_id}/add-member`, {
+        student_identifier: addMemberInput.trim(),
+      });
       setAddMemberMsg("Member added!");
       setAddMemberInput("");
       fetchGroups();
       fetchContacts();
     } catch (err) {
-      setAddMemberMsg("Failed: " + err.message);
+      setAddMemberMsg(
+        "Failed: " + (err.response?.data?.message || err.message),
+      );
     }
   };
 
@@ -153,31 +132,21 @@ const MyGroups = () => {
     setDmUser(user);
     setSelectedGroup(null);
     setDmMessages([]);
-    fetch(`http://localhost:8000/api/messages/direct/${user.user_id}`, {
-      headers: authHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => setDmMessages(data))
+    api
+      .get(`/messages/direct/${user.user_id}`)
+      .then((r) => setDmMessages(r.data))
       .catch(() => setDmMessages([]));
   };
 
   const sendDM = async () => {
     if (!dmNewMsg.trim() || !dmUser) return;
     try {
-      await fetch("http://localhost:8000/api/messages", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          receiver_id: dmUser.user_id,
-          message: dmNewMsg,
-        }),
+      await api.post("/messages", {
+        receiver_id: dmUser.user_id,
+        message: dmNewMsg,
       });
       setDmNewMsg("");
-      const res = await fetch(
-        `http://localhost:8000/api/messages/direct/${dmUser.user_id}`,
-        { headers: authHeaders() },
-      );
-      const data = await res.json();
+      const { data } = await api.get(`/messages/direct/${dmUser.user_id}`);
       setDmMessages(data);
     } catch {
       alert("Failed to send message");

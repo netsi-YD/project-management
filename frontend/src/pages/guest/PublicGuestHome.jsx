@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api/axios";
 
 import Footer from "../../components/shared/Footer";
 import { Link } from "react-router-dom";
@@ -8,8 +8,8 @@ export default function PublicGuestHome() {
   const [recentProjects, setRecentProjects] = useState([]);
 
   useEffect(() => {
-    axios
-      .get("http://localhost:8000/api/public-projects")
+    api
+      .get("/public-projects")
       .then((res) => {
         const projects = res.data || [];
         const safe = Array.isArray(projects) ? projects.slice(0, 3) : [];
