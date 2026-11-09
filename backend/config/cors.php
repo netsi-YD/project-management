@@ -6,7 +6,11 @@ return [
 
     'allowed_methods' => ['*'],
 
-'allowed_origins' => ['http://localhost:3000', 'https://project-management-mkay.vercel.app'],
+    'allowed_origins' => [
+        'http://localhost:3000',
+        'https://project-management-mkay.vercel.app',
+        'https://project-management-b7pojiyoo-netsis-projects-37c553c2.vercel.app',
+    ],
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
